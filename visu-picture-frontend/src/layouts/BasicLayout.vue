@@ -11,7 +11,7 @@
         </a-layout-content>
       </a-layout>
       <a-layout-footer class="footer">
-        <a href="https://gitee.com/whirlwind-nanny" target="_blank"> 编程导航 by 何佳鑫(旋风) </a>
+        <a href="https://gitee.com/whirlwind-nanny" target="_blank"> 视界图库 by 何佳鑫(旋风) </a>
       </a-layout-footer>
     </a-layout>
   </div>

@@ -9,6 +9,9 @@ server:
 spring:
   application:
     name: visupicture
+  # 默认激活 local 环境（COS、阿里云 AI 等配置在 application-local.yml 中）
+  profiles:
+    active: local
   # 数据库配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver

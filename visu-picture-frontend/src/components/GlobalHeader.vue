@@ -5,7 +5,7 @@
         <router-link to="/">
           <div class="title-bar">
             <img class="logo" src="../assets/logo.png" alt="logo" />
-            <div class="title">鱼皮云图库</div>
+            <div class="title">视界云图库</div>
           </div>
         </router-link>
       </a-col>
@@ -24,7 +24,7 @@
             <a-dropdown>
               <a-space>
                 <a-avatar :src="loginUserStore.loginUser.userAvatar" />
-                {{ loginUserStore.loginUser.userName ?? '无名' }}
+                {{ loginUserStore.loginUser.userName ?? '视界用户' }}
               </a-space>
               <template #overlay>
                 <a-menu>
@@ -87,11 +87,6 @@ const originItems = [
     key: '/admin/spaceManage',
     label: '空间管理',
     title: '空间管理',
-  },
-  {
-    key: 'others',
-    label: h('a', { href: 'https://www.codefather.cn', target: '_blank' }, '编程导航'),
-    title: '编程导航',
   },
 ]
 
