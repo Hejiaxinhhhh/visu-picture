@@ -1,5 +1,6 @@
 package com.visupicture.controller;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
@@ -10,8 +11,10 @@ import com.visupicture.annotation.AuthCheck;
 import com.visupicture.api.aliyunai.AliYunAiApi;
 import com.visupicture.api.aliyunai.model.CreateOutPaintingTaskResponse;
 import com.visupicture.api.aliyunai.model.GetOutPaintingTaskResponse;
-import com.visupicture.api.imagesearch.ImageSearchApiFacade;
+import com.visupicture.api.imagesearch.model.BaiduItem;
+import com.visupicture.api.imagesearch.model.BaiduResponse;
 import com.visupicture.api.imagesearch.model.ImageSearchResult;
+import com.visupicture.api.imagesearch.BaiduImageSearch;
 import com.visupicture.common.BaseResponse;
 import com.visupicture.common.DeleteRequest;
 import com.visupicture.common.ResultUtils;
@@ -35,7 +38,6 @@ import com.visupicture.service.SpaceService;
 import com.visupicture.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.util.DigestUtils;
@@ -45,8 +47,8 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -374,7 +376,15 @@ public class PictureController {
         ThrowUtils.throwIf(pictureId == null || pictureId <= 0, ErrorCode.PARAMS_ERROR);
         Picture picture = pictureService.getById(pictureId);
         ThrowUtils.throwIf(picture == null, ErrorCode.NOT_FOUND_ERROR);
-        List<ImageSearchResult> resultList = ImageSearchApiFacade.searchImage(picture.getUrl());
+        BaiduResponse response = BaiduImageSearch.search(picture.getUrl());
+        // 合并相同图片与相似图片，映射为统一的 ImageSearchResult
+        List<ImageSearchResult> resultList = new ArrayList<>();
+        for (BaiduItem item : CollUtil.emptyIfNull(response.getExactMatches())) {
+            resultList.add(new ImageSearchResult(item.getThumbnail(), item.getUrl()));
+        }
+        for (BaiduItem item : CollUtil.emptyIfNull(response.getRaw())) {
+            resultList.add(new ImageSearchResult(item.getThumbnail(), item.getUrl()));
+        }
         return ResultUtils.success(resultList);
     }
 

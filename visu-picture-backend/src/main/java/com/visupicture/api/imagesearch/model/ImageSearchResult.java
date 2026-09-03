@@ -1,11 +1,13 @@
 package com.visupicture.api.imagesearch.model;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 /**
  * 图片搜索结果
  */
 @Data
+@AllArgsConstructor
 public class ImageSearchResult {
 
     /**
