@@ -4,12 +4,9 @@
       <a-layout-header class="header">
         <GlobalHeader />
       </a-layout-header>
-      <a-layout>
-        <GlobalSider class="sider" />
-        <a-layout-content class="content">
-          <router-view />
-        </a-layout-content>
-      </a-layout>
+      <a-layout-content class="content">
+        <router-view />
+      </a-layout-content>
       <a-layout-footer class="footer">
         <a href="https://gitee.com/whirlwind-nanny" target="_blank"> 视界图库 by 何佳鑫(旋风) </a>
       </a-layout-footer>
@@ -19,7 +16,6 @@
 
 <script setup lang="ts">
 import GlobalHeader from '@/components/GlobalHeader.vue'
-import GlobalSider from "@/components/GlobalSider.vue";
 </script>
 
 <style scoped>
@@ -31,16 +27,6 @@ import GlobalSider from "@/components/GlobalSider.vue";
   position: sticky;
   top: 0;
   z-index: 100;
-}
-
-#basicLayout .sider {
-  background: transparent;
-  padding-top: 20px;
-}
-
-#basicLayout :deep(.ant-menu-root) {
-  border-bottom: none !important;
-  border-inline-end: none !important;
 }
 
 #basicLayout .content {
