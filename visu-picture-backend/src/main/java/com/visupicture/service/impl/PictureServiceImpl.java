@@ -41,6 +41,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -51,6 +52,7 @@ import java.awt.*;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -84,6 +86,14 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private AliYunAiApi aliYunAiApi;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
+    /**
+     * 批量抓取上传任务的进度缓存 key 前缀
+     */
+    private static final String BATCH_UPLOAD_PROGRESS_KEY = "visupicture:batch:upload:progress:";
 
     @Override
     public void validPicture(Picture picture) {
@@ -408,6 +418,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "获取元素失败");
         }
         Elements imgElementList = div.select("img.mimg");
+        // 初始化任务进度（值格式：已完成/总数），前端轮询展示
+        String progressKey = BATCH_UPLOAD_PROGRESS_KEY + loginUser.getId();
+        stringRedisTemplate.opsForValue().set(progressKey, "0/" + count, 10, TimeUnit.MINUTES);
         // 遍历元素，依次处理上传图片
         int uploadCount = 0;
         for (Element imgElement : imgElementList) {
@@ -430,6 +443,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                 PictureVO pictureVO = this.uploadPicture(fileUrl, pictureUploadRequest, loginUser);
                 log.info("图片上传成功，id = {}", pictureVO.getId());
                 uploadCount++;
+                // 更新任务进度
+                stringRedisTemplate.opsForValue().set(progressKey, uploadCount + "/" + count, 10, TimeUnit.MINUTES);
             } catch (Exception e) {
                 log.error("图片上传失败", e);
                 continue;

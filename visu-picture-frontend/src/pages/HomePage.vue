@@ -1,23 +1,28 @@
 <template>
   <div id="homePage">
-    <!-- 搜索框 -->
-    <div class="search-bar">
-      <a-input-search
-        v-model:value="searchParams.searchText"
-        placeholder="从海量图片中搜索"
-        enter-button="搜索"
-        size="large"
-        @search="doSearch"
-      />
+    <!-- 顶部 Hero 区域 -->
+    <div class="hero">
+      <h1 class="hero-title">视界云图库</h1>
+      <p class="hero-desc">企业级智能协同云图库，海量图片素材免费获取</p>
+      <!-- 搜索框 -->
+      <div class="search-bar">
+        <a-input-search
+          v-model:value="searchParams.searchText"
+          placeholder="从海量图片中搜索"
+          enter-button="搜索"
+          size="large"
+          @search="doSearch"
+        />
+      </div>
     </div>
     <!-- 分类和标签筛选 -->
-    <a-tabs v-model:active-key="selectedCategory" @change="doSearch">
+    <a-tabs v-model:active-key="selectedCategory" class="category-tabs" @change="doSearch">
       <a-tab-pane key="all" tab="全部" />
       <a-tab-pane v-for="category in categoryList" :tab="category" :key="category" />
     </a-tabs>
     <div class="tag-bar">
-      <span style="margin-right: 8px">标签：</span>
-      <a-space :size="[0, 8]" wrap>
+      <span class="tag-label">标签：</span>
+      <a-space :size="[8, 8]" wrap>
         <a-checkable-tag
           v-for="(tag, index) in tagList"
           :key="tag"
@@ -28,21 +33,18 @@
         </a-checkable-tag>
       </a-space>
     </div>
-    <!-- 图片列表 -->
-    <PictureList :dataList="dataList" :loading="loading" />
-    <!-- 分页 -->
-    <a-pagination
-      style="text-align: right"
-      v-model:current="searchParams.current"
-      v-model:pageSize="searchParams.pageSize"
-      :total="total"
-      @change="onPageChange"
+    <!-- 图片列表（滚动加载） -->
+    <PictureList
+      :dataList="dataList"
+      :loading="loading"
+      :finished="finished"
+      @load-more="onLoadMore"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import {
   listPictureTagCategoryUsingGet,
   listPictureVoByPageUsingPost,
@@ -63,7 +65,10 @@ const searchParams = reactive<API.PictureQueryRequest>({
   sortOrder: 'descend',
 })
 
-// 获取数据
+// 是否已加载全部数据
+const finished = computed(() => !loading.value && dataList.value.length >= total.value)
+
+// 获取数据（滚动加载模式：第 1 页替换列表，之后追加）
 const fetchData = async () => {
   loading.value = true
   // 转换搜索参数
@@ -80,14 +85,33 @@ const fetchData = async () => {
       params.tags.push(tagList.value[index])
     }
   })
-  const res = await listPictureVoByPageUsingPost(params)
-  if (res.data.code === 0 && res.data.data) {
-    dataList.value = res.data.data.records ?? []
-    total.value = res.data.data.total ?? 0
-  } else {
-    message.error('获取数据失败，' + res.data.message)
+  try {
+    const res = await listPictureVoByPageUsingPost(params)
+    if (res.data.code === 0 && res.data.data) {
+      const records = res.data.data.records ?? []
+      if ((searchParams.current ?? 1) <= 1) {
+        dataList.value = records
+      } else {
+        dataList.value = [...dataList.value, ...records]
+      }
+      total.value = res.data.data.total ?? 0
+    } else {
+      rollbackPage()
+      message.error('获取数据失败，' + res.data.message)
+    }
+  } catch (e) {
+    rollbackPage()
+    message.error('获取数据失败，请稍后重试')
+  } finally {
+    loading.value = false
   }
-  loading.value = false
+}
+
+// 加载失败时回滚页码，避免滚动加载重复请求同一页
+const rollbackPage = () => {
+  if ((searchParams.current ?? 1) > 1) {
+    searchParams.current = (searchParams.current ?? 1) - 1
+  }
 }
 
 // 页面加载时获取数据，请求一次
@@ -95,10 +119,10 @@ onMounted(() => {
   fetchData()
 })
 
-// 分页参数
-const onPageChange = (page: number, pageSize: number) => {
-  searchParams.current = page
-  searchParams.pageSize = pageSize
+// 滚动到底部时加载下一页
+const onLoadMore = () => {
+  if (loading.value || finished.value) return
+  searchParams.current = (searchParams.current ?? 1) + 1
   fetchData()
 }
 
@@ -139,12 +163,85 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
+/* Hero 区域：大标题 + 居中搜索卡片 */
+#homePage .hero {
+  text-align: center;
+  padding: 40px 0 8px;
+}
+
+#homePage .hero-title {
+  font-size: 40px;
+  margin-bottom: 12px;
+  letter-spacing: 1px;
+}
+
+#homePage .hero-desc {
+  color: rgba(35, 44, 86, 0.6);
+  font-size: 15px;
+  margin-bottom: 28px;
+}
+
 #homePage .search-bar {
-  max-width: 480px;
-  margin: 0 auto 16px;
+  max-width: 640px;
+  margin: 0 auto 20px;
+  background: #fff;
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px solid #eceff7;
+  box-shadow: 0 10px 30px rgba(37, 55, 120, 0.08);
+}
+
+#homePage .search-bar :deep(.ant-input) {
+  border: none;
+  box-shadow: none !important;
+  background: transparent;
+}
+
+#homePage .search-bar :deep(.ant-input-group-addon) {
+  background: transparent;
+}
+
+#homePage .search-bar :deep(.ant-input-search-button) {
+  border-radius: 10px;
+}
+
+/* 分类 Tab 居中 */
+#homePage .category-tabs :deep(.ant-tabs-nav)::before {
+  border-bottom: none;
+}
+
+#homePage .category-tabs :deep(.ant-tabs-nav-list) {
+  margin: 0 auto;
 }
 
 #homePage .tag-bar {
-  margin-bottom: 16px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+#homePage .tag-label {
+  color: rgba(35, 44, 86, 0.65);
+  margin-right: 8px;
+}
+
+/* 标签药丸样式 */
+#homePage .tag-bar :deep(.ant-tag-checkable) {
+  background: #fff;
+  border: 1px solid #e3e7f3;
+  border-radius: 999px;
+  padding: 4px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#homePage .tag-bar :deep(.ant-tag-checkable:hover) {
+  color: #3d5af5;
+  border-color: rgba(61, 90, 245, 0.45);
+}
+
+#homePage .tag-bar :deep(.ant-tag-checkable-checked) {
+  background: #3d5af5;
+  color: #fff;
+  border-color: #3d5af5;
 }
 </style>

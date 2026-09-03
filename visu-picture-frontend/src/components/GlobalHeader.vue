@@ -4,7 +4,7 @@
       <a-col flex="200px">
         <router-link to="/">
           <div class="title-bar">
-            <img class="logo" src="../assets/logo.png" alt="logo" />
+            <img class="logo" src="../assets/logo-full.svg" alt="visu 视界云图库" />
             <div class="title">视界云图库</div>
           </div>
         </router-link>
@@ -18,11 +18,11 @@
         />
       </a-col>
       <!-- 用户信息展示栏 -->
-      <a-col flex="120px">
+      <a-col flex="auto">
         <div class="user-login-status">
           <div v-if="loginUserStore.loginUser.id">
             <a-dropdown>
-              <a-space>
+              <a-space class="user-info">
                 <a-avatar :src="loginUserStore.loginUser.userAvatar" />
                 {{ loginUserStore.loginUser.userName ?? '视界用户' }}
               </a-space>
@@ -43,7 +43,10 @@
             </a-dropdown>
           </div>
           <div v-else>
-            <a-button type="primary" href="/user/login">登录</a-button>
+            <a-space>
+              <a-button href="/user/login">登录</a-button>
+              <a-button type="primary" href="/user/register">注册</a-button>
+            </a-space>
           </div>
         </div>
       </a-col>
@@ -144,12 +147,34 @@ const doLogout = async () => {
 }
 
 .title {
-  color: black;
-  font-size: 18px;
-  margin-left: 16px;
+  color: #171a2b;
+  font-size: 17px;
+  font-weight: 700;
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid #e4e8f2;
+  line-height: 26px;
 }
 
 .logo {
-  height: 48px;
+  height: 42px;
+}
+
+/* 顶部导航居中，贴近参考样式 */
+#globalHeader :deep(.ant-menu-horizontal) {
+  justify-content: center;
+  border-bottom: none;
+  background: transparent;
+}
+
+#globalHeader .user-login-status {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+#globalHeader .user-info {
+  cursor: pointer;
+  color: #26283a;
 }
 </style>

@@ -52,22 +52,16 @@
     <a-form-item label="按颜色搜索">
       <color-picker format="hex" @pureColorChange="onColorChange" />
     </a-form-item>
-    <!-- 图片列表 -->
+    <!-- 图片列表（滚动加载） -->
     <PictureList
       :dataList="dataList"
       :loading="loading"
+      :finished="finished"
       :showOp="true"
       :canEdit="canEditPicture"
       :canDelete="canDeletePicture"
-      :onReload="fetchData"
-    />
-    <!-- 分页 -->
-    <a-pagination
-      style="text-align: right"
-      v-model:current="searchParams.current"
-      v-model:pageSize="searchParams.pageSize"
-      :total="total"
-      @change="onPageChange"
+      :onReload="resetFetch"
+      @load-more="onLoadMore"
     />
     <BatchEditPictureModal
       ref="batchEditPictureModalRef"
@@ -150,7 +144,10 @@ const searchParams = ref<API.PictureQueryRequest>({
   sortOrder: 'descend',
 })
 
-// 获取数据
+// 是否已加载全部数据
+const finished = computed(() => !loading.value && dataList.value.length >= total.value)
+
+// 获取数据（滚动加载模式：第 1 页替换列表，之后追加）
 const fetchData = async () => {
   loading.value = true
   // 转换搜索参数
@@ -158,14 +155,33 @@ const fetchData = async () => {
     spaceId: props.id,
     ...searchParams.value,
   }
-  const res = await listPictureVoByPageUsingPost(params)
-  if (res.data.code === 0 && res.data.data) {
-    dataList.value = res.data.data.records ?? []
-    total.value = res.data.data.total ?? 0
-  } else {
-    message.error('获取数据失败，' + res.data.message)
+  try {
+    const res = await listPictureVoByPageUsingPost(params)
+    if (res.data.code === 0 && res.data.data) {
+      const records = res.data.data.records ?? []
+      if ((searchParams.value.current ?? 1) <= 1) {
+        dataList.value = records
+      } else {
+        dataList.value = [...dataList.value, ...records]
+      }
+      total.value = res.data.data.total ?? 0
+    } else {
+      rollbackPage()
+      message.error('获取数据失败，' + res.data.message)
+    }
+  } catch (e) {
+    rollbackPage()
+    message.error('获取数据失败，请稍后重试')
+  } finally {
+    loading.value = false
   }
-  loading.value = false
+}
+
+// 加载失败时回滚页码，避免滚动加载重复请求同一页
+const rollbackPage = () => {
+  if ((searchParams.value.current ?? 1) > 1) {
+    searchParams.value.current = (searchParams.value.current ?? 1) - 1
+  }
 }
 
 // 页面加载时获取数据，请求一次
@@ -173,10 +189,16 @@ onMounted(() => {
   fetchData()
 })
 
-// 分页参数
-const onPageChange = (page: number, pageSize: number) => {
-  searchParams.value.current = page
-  searchParams.value.pageSize = pageSize
+// 滚动到底部时加载下一页
+const onLoadMore = () => {
+  if (loading.value || finished.value) return
+  searchParams.value.current = (searchParams.value.current ?? 1) + 1
+  fetchData()
+}
+
+// 重置到第一页并重新加载（删除、批量编辑等操作后使用）
+const resetFetch = () => {
+  searchParams.value.current = 1
   fetchData()
 }
 
@@ -215,7 +237,7 @@ const batchEditPictureModalRef = ref()
 
 // 批量编辑图片成功
 const onBatchEditPictureSuccess = () => {
-  fetchData()
+  resetFetch()
 }
 
 // 打开批量编辑图片弹窗
@@ -230,7 +252,7 @@ watch(
   () => props.id,
   (newSpaceId) => {
     fetchSpaceDetail()
-    fetchData()
+    resetFetch()
   },
 )
 </script>

@@ -282,6 +282,16 @@ export async function uploadPictureByBatchUsingPost(
   })
 }
 
+/** getBatchUploadProgress GET /api/picture/upload/batch/progress */
+export async function getBatchUploadProgressUsingGet(
+  options?: { [key: string]: any }
+) {
+  return request<API.BaseResponseString_>('/api/picture/upload/batch/progress', {
+    method: 'GET',
+    ...(options || {}),
+  })
+}
+
 /** uploadPictureByUrl POST /api/picture/upload/url */
 export async function uploadPictureByUrlUsingPost(
   body: API.PictureUploadRequest,

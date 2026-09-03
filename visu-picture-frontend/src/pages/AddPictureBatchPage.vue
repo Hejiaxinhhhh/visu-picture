@@ -28,14 +28,27 @@
           执行任务
         </a-button>
       </a-form-item>
+      <!-- 任务进度 -->
+      <a-form-item v-if="loading && progress">
+        <div class="progress-wrapper">
+          <div class="progress-text">
+            正在抓取并上传图片：已完成 {{ progress.done }} / {{ progress.total }} 张
+          </div>
+          <a-progress
+            :percent="Math.round((progress.done / progress.total) * 100)"
+            :status="progress.done >= progress.total ? 'success' : 'active'"
+          />
+        </div>
+      </a-form-item>
     </a-form>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { message } from 'ant-design-vue'
 import {
+  getBatchUploadProgressUsingGet,
   getPictureVoByIdUsingGet,
   listPictureTagCategoryUsingGet,
   uploadPictureByBatchUsingPost,
@@ -47,8 +60,46 @@ const formData = reactive<API.PictureUploadByBatchRequest>({
 })
 // 提交任务状态
 const loading = ref(false)
+// 任务进度
+const progress = ref<{ done: number; total: number } | null>(null)
+// 轮询定时器
+let progressTimer: number | null = null
 
 const router = useRouter()
+
+/**
+ * 开始轮询任务进度
+ */
+const startProgressPolling = () => {
+  stopProgressPolling()
+  progressTimer = window.setInterval(async () => {
+    try {
+      const res = await getBatchUploadProgressUsingGet()
+      if (res.data.code === 0 && res.data.data) {
+        const [done, total] = res.data.data.split('/').map(Number)
+        if (!Number.isNaN(done) && !Number.isNaN(total) && total > 0) {
+          progress.value = { done, total }
+        }
+      }
+    } catch (error) {
+      // 轮询失败暂时忽略，下一次重试
+    }
+  }, 800)
+}
+
+/**
+ * 停止轮询任务进度
+ */
+const stopProgressPolling = () => {
+  if (progressTimer) {
+    clearInterval(progressTimer)
+    progressTimer = null
+  }
+}
+
+onUnmounted(() => {
+  stopProgressPolling()
+})
 
 /**
  * 提交表单
@@ -56,9 +107,18 @@ const router = useRouter()
  */
 const handleSubmit = async (values: any) => {
   loading.value = true
-  const res = await uploadPictureByBatchUsingPost({
-    ...formData,
-  })
+  progress.value = null
+  // 开始轮询进度
+  startProgressPolling()
+  let res
+  try {
+    res = await uploadPictureByBatchUsingPost({
+      ...formData,
+    })
+  } finally {
+    stopProgressPolling()
+    loading.value = false
+  }
   // 操作成功
   if (res.data.code === 0 && res.data.data) {
     message.success(`创建成功，共 ${res.data.data} 条`)
@@ -69,7 +129,6 @@ const handleSubmit = async (values: any) => {
   } else {
     message.error('创建失败，' + res.data.message)
   }
-  loading.value = false
 }
 </script>
 
@@ -77,5 +136,18 @@ const handleSubmit = async (values: any) => {
 #addPictureBatchPage {
   max-width: 720px;
   margin: 0 auto;
+}
+
+.progress-wrapper {
+  padding: 12px 16px;
+  border: 1px solid #e7ebf6;
+  border-radius: 10px;
+  background: rgba(61, 90, 245, 0.04);
+}
+
+.progress-text {
+  margin-bottom: 8px;
+  color: rgba(35, 44, 86, 0.7);
+  font-size: 14px;
 }
 </style>

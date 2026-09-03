@@ -25,14 +25,16 @@ import GlobalSider from "@/components/GlobalSider.vue";
 <style scoped>
 #basicLayout .header {
   padding-inline: 20px;
-  background: white;
+  background: #ffffff;
   color: unset;
-  margin-bottom: 1px;
+  border-bottom: 1px solid #edf0f7;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 #basicLayout .sider {
-  background: #fff;
-  border-right: 0.5px solid #eee;
+  background: transparent;
   padding-top: 20px;
 }
 
@@ -43,17 +45,23 @@ import GlobalSider from "@/components/GlobalSider.vue";
 
 #basicLayout .content {
   padding: 28px;
-  background: linear-gradient(to right, #fefefe, #fff);
+  background: transparent;
   margin-bottom: 28px;
 }
 
 #basicLayout .footer {
-  background: #efefef;
+  background: transparent;
   padding: 16px;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
   text-align: center;
+  color: rgba(35, 44, 86, 0.45);
+  font-size: 13px;
+}
+
+#basicLayout .footer a {
+  color: rgba(35, 44, 86, 0.55);
+}
+
+#basicLayout .footer a:hover {
+  color: #3d5af5;
 }
 </style>

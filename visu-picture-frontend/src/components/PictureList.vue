@@ -15,6 +15,8 @@
                 :alt="picture.name"
                 :src="picture.thumbnailUrl ?? picture.url"
                 style="height: 180px; object-fit: cover"
+                loading="lazy"
+                decoding="async"
               />
             </template>
             <a-card-meta :title="picture.name">
@@ -39,6 +41,11 @@
         </a-list-item>
       </template>
     </a-list>
+    <!-- 滚动加载哨兵：进入视口时触发 loadMore -->
+    <div ref="sentinelRef" class="load-more-sentinel">
+      <a-spin v-if="loading" size="small" />
+      <span v-else-if="finished" class="no-more-text">没有更多了</span>
+    </div>
     <ShareModal ref="shareModalRef" :link="shareLink" />
   </div>
 </template>
@@ -54,7 +61,7 @@ import {
 import { deletePictureUsingPost } from '@/api/pictureController.ts'
 import { message, Modal } from 'ant-design-vue'
 import ShareModal from '@/components/ShareModal.vue'
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 
 interface Props {
   dataList?: API.PictureVO[]
@@ -62,6 +69,8 @@ interface Props {
   showOp?: boolean
   canEdit?: boolean
   canDelete?: boolean
+  /** 是否已加载全部数据 */
+  finished?: boolean
   onReload?: () => void
 }
 
@@ -71,7 +80,65 @@ const props = withDefaults(defineProps<Props>(), {
   showOp: false,
   canEdit: false,
   canDelete: false,
+  finished: false,
 })
+
+const emit = defineEmits<{
+  (e: 'loadMore'): void
+}>()
+
+// ----- 滚动加载（IntersectionObserver） -----
+const sentinelRef = ref<HTMLDivElement>()
+let observer: IntersectionObserver | null = null
+// 上次触发时间，防止加载失败时短时间内无限重试
+let lastLoadTime = 0
+
+const tryLoadMore = () => {
+  if (props.loading || props.finished) return
+  const now = Date.now()
+  if (now - lastLoadTime < 1000) return
+  lastLoadTime = now
+  emit('loadMore')
+}
+
+// 判断哨兵当前是否在视口内（含预加载余量）
+const isSentinelVisible = () => {
+  const el = sentinelRef.value
+  if (!el) return false
+  const rect = el.getBoundingClientRect()
+  return rect.top < window.innerHeight + 200
+}
+
+onMounted(() => {
+  observer = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        tryLoadMore()
+      }
+    },
+    { rootMargin: '200px 0px' },
+  )
+  if (sentinelRef.value) {
+    observer.observe(sentinelRef.value)
+  }
+})
+
+onUnmounted(() => {
+  observer?.disconnect()
+  observer = null
+})
+
+// 数据加载结束后，若哨兵仍在视口内（数据不满一屏），自动继续加载
+watch(
+  () => [props.dataList.length, props.loading],
+  () => {
+    nextTick(() => {
+      if (!props.loading && !props.finished && isSentinelVisible()) {
+        tryLoadMore()
+      }
+    })
+  },
+)
 
 const router = useRouter()
 // 跳转至图片详情页
@@ -167,4 +234,38 @@ const doShare = (picture, e) => {
 }
 </script>
 
-<style scoped></style>
+<style scoped>
+/* 图片卡片：圆角 + 柔和阴影 + 悬浮上浮 */
+.picture-list :deep(.ant-card) {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #eceff7;
+  box-shadow: 0 2px 10px rgba(37, 55, 120, 0.05);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.picture-list :deep(.ant-card:hover) {
+  transform: translateY(-4px);
+  border-color: rgba(61, 90, 245, 0.35);
+  box-shadow: 0 14px 30px rgba(37, 55, 120, 0.14);
+}
+
+.picture-list :deep(.ant-card .ant-card-body) {
+  padding: 12px 14px;
+}
+
+.load-more-sentinel {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.no-more-text {
+  color: rgba(35, 44, 86, 0.45);
+  font-size: 13px;
+}
+</style>

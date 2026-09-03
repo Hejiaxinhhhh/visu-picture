@@ -353,6 +353,18 @@ public class PictureController {
     }
 
     /**
+     * 查询批量抓取任务的进度（值格式：已完成/总数）
+     */
+    @GetMapping("/upload/batch/progress")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<String> getBatchUploadProgress(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        String progressKey = "visupicture:batch:upload:progress:" + loginUser.getId();
+        String progress = stringRedisTemplate.opsForValue().get(progressKey);
+        return ResultUtils.success(progress);
+    }
+
+    /**
      * 以图搜图
      */
     @PostMapping("/search/picture")
