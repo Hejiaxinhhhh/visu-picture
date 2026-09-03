@@ -532,6 +532,11 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         }
     }
 
+    /**
+     * 以色搜图的相似度阈值（0~1），低于该值的图片视为颜色不相似，直接过滤
+     */
+    private static final double COLOR_SIMILARITY_THRESHOLD = 0.5;
+
     @Override
     public List<PictureVO> searchPictureByColor(Long spaceId, String picColor, User loginUser) {
         // 1. 校验参数
@@ -554,20 +559,24 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         }
         // 将颜色字符串转换为主色调
         Color targetColor = Color.decode(picColor);
-        // 4. 计算相似度并排序
+        // 4. 阈值过滤 + 计算相似度并排序
         List<Picture> sortedPictureList = pictureList.stream()
-                .sorted(Comparator.comparingDouble(picture -> {
+                // 过滤掉与目标颜色相似度低于阈值的图片
+                .filter(picture -> {
                     String hexColor = picture.getPicColor();
-                    // 没有主色调的图片会默认排序到最后
                     if (StrUtil.isBlank(hexColor)) {
-                        return Double.MAX_VALUE;
+                        return false;
                     }
                     Color pictureColor = Color.decode(hexColor);
-                    // 计算相似度
+                    return ColorSimilarUtils.calculateSimilarity(targetColor, pictureColor)
+                            >= COLOR_SIMILARITY_THRESHOLD;
+                })
+                .sorted(Comparator.comparingDouble(picture -> {
+                    // 过滤后必然存在主色调
+                    Color pictureColor = Color.decode(picture.getPicColor());
                     // 越大越相似
                     return -ColorSimilarUtils.calculateSimilarity(targetColor, pictureColor);
                 }))
-                .limit(12) // 取前 12 个
                 .collect(Collectors.toList());
         // 5. 返回结果
         return sortedPictureList.stream()

@@ -1,5 +1,6 @@
 package com.visupicture.api.imagesearch.sub;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.URLUtil;
 import cn.hutool.http.HttpRequest;
@@ -13,12 +14,15 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 获取以图搜图页面地址（step 1）
  */
 @Slf4j
 public class GetImagePageUrlApi {
+
+    private static final String USER_AGENT = BaiduHttpHelper.getUserAgent();
 
     /**
      * 获取以图搜图页面地址
@@ -43,8 +47,13 @@ public class GetImagePageUrlApi {
         // 请求地址
         String url = "https://graph.baidu.com/upload?uptime=" + uptime;
         try {
-            // 2. 发送请求
+            // 2. 发送请求（模拟浏览器请求头，携带百度 Cookie 以通过风控）
             HttpResponse httpResponse = HttpRequest.post(url)
+                    .header("User-Agent", USER_AGENT)
+                    .header("Referer", "https://graph.baidu.com/")
+                    .header("Origin", "https://graph.baidu.com")
+                    .header("Accept", "application/json, text/plain, */*")
+                    .cookie(BaiduHttpHelper.getBaiduCookie())
                     .form(formData)
                     .timeout(5000)
                     .execute();
@@ -76,7 +85,7 @@ public class GetImagePageUrlApi {
 
     public static void main(String[] args) {
         // 测试以图搜图功能
-        String imageUrl = "https://www.codefather.cn/logo.png";
+        String imageUrl = "https://gips3.baidu.com/it/u=3886271102,3123389489&fm=3028&app=3028&f=JPEG&fmt=auto?w=1280&h=960";
         String searchResultUrl = getImagePageUrl(imageUrl);
         System.out.println("搜索成功，结果 URL：" + searchResultUrl);
     }

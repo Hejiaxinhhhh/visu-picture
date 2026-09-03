@@ -25,8 +25,10 @@ public class GetImageFirstUrlApi {
      */
     public static String getImageFirstUrl(String url) {
         try {
-            // 使用 Jsoup 获取 HTML 内容
+            // 使用 Jsoup 获取 HTML 内容（模拟浏览器请求头）
             Document document = Jsoup.connect(url)
+                    .userAgent(BaiduHttpHelper.getUserAgent())
+                    .referrer("https://graph.baidu.com/")
                     .timeout(5000)
                     .get();
 

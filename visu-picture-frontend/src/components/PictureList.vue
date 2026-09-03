@@ -52,7 +52,7 @@ import {
   ShareAltOutlined,
 } from '@ant-design/icons-vue'
 import { deletePictureUsingPost } from '@/api/pictureController.ts'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import ShareModal from '@/components/ShareModal.vue'
 import { ref } from 'vue'
 
@@ -81,12 +81,44 @@ const doClickPicture = (picture: API.PictureVO) => {
   })
 }
 
-// 搜索
+// 搜索（跳转百度识图）
 const doSearch = (picture, e) => {
   // 阻止冒泡
   e.stopPropagation()
-  // 打开新的页面
-  window.open(`/search_picture?pictureId=${picture.id}`)
+  const imageUrl = picture.url ?? ''
+  // 复制图片链接（优先用剪贴板 API，失败则降级为 execCommand）
+  const copyText = (text: string) => {
+    if (navigator.clipboard?.writeText) {
+      return navigator.clipboard.writeText(text)
+    }
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    return Promise.resolve()
+  }
+  copyText(imageUrl)
+    .then(() => {
+      Modal.success({
+        title: '图片链接已复制',
+        content: '点击「知道了」后将打开百度识图，将链接粘贴（Ctrl+V）到搜索框即可搜索',
+        centered: true,
+        okText: '知道了，打开百度识图',
+        onOk: () => {
+          window.open('https://graph.baidu.com/pcpage/index?tpl_from=pc', '_blank')
+        },
+      })
+    })
+    .catch(() => {
+      Modal.error({
+        title: '图片链接复制失败',
+        content: '请到图片详情页手动复制图片地址后，前往百度识图搜索',
+        centered: true,
+        okText: '知道了',
+      })
+    })
 }
 
 // 编辑

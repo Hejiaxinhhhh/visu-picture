@@ -26,8 +26,13 @@ public class GetImageListApi {
      */
     public static List<ImageSearchResult> getImageList(String url) {
         try {
-            // 发起GET请求
-            HttpResponse response = HttpUtil.createGet(url).execute();
+            // 发起GET请求（模拟浏览器请求头，携带 Cookie）
+            HttpResponse response = HttpUtil.createGet(url)
+                    .header("User-Agent", BaiduHttpHelper.getUserAgent())
+                    .header("Referer", "https://graph.baidu.com/")
+                    .cookie(BaiduHttpHelper.getBaiduCookie())
+                    .timeout(5000)
+                    .execute();
 
             // 获取响应内容
             int statusCode = response.getStatus();
