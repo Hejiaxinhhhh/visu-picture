@@ -42,6 +42,11 @@ public class LoginUserVO implements Serializable {
     private String userRole;
 
     /**
+     * vip 过期时间
+     */
+    private Date vipExpireTime;
+
+    /**
      * 编辑时间
      */
     private Date editTime;

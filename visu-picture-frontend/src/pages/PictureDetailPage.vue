@@ -160,6 +160,8 @@ const doDelete = async () => {
   const res = await deletePictureUsingPost({ id })
   if (res.data.code === 0) {
     message.success('删除成功')
+    // 删除后跳转回公共图库（空间图片由空间页管理）
+    router.push({ path: '/' })
   } else {
     message.error('删除失败')
   }

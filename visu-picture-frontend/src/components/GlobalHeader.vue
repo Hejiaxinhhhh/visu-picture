@@ -10,35 +10,80 @@
         </router-link>
       </a-col>
       <a-col flex="auto">
-        <a-menu
-          v-model:selectedKeys="current"
-          mode="horizontal"
-          :items="items"
-          @click="doMenuClick"
-        />
+        <div class="nav-wrap">
+          <a-menu
+            v-model:selectedKeys="current"
+            mode="horizontal"
+            class="nav-menu"
+            :items="items"
+            @click="doMenuClick"
+          />
+        <!-- 我的团队：深色下拉面板（含团队列表与创建入口） -->
+        <a-dropdown
+          v-if="loginUserStore.loginUser.id"
+          trigger="['hover', 'click']"
+          @open-change="(v: boolean) => (teamDropdownOpen = v)"
+        >
+          <div class="team-trigger">
+            <TeamOutlined class="team-icon" />
+            <span>我的团队</span>
+            <DownOutlined class="team-trigger-arrow" :class="{ open: teamDropdownOpen }" />
+          </div>
+          <template #overlay>
+            <div class="team-panel">
+              <div
+                v-for="spaceUser in teamSpaceList"
+                :key="spaceUser.spaceId"
+                class="team-panel-item"
+                @click="goTeamSpace(spaceUser.spaceId)"
+              >
+                <div class="item-title">{{ spaceUser.space?.spaceName ?? '未命名团队' }}</div>
+                <div class="item-desc">团队空间 · {{ roleText(spaceUser.spaceRole) }}</div>
+              </div>
+              <div v-if="teamSpaceList.length > 0" class="team-panel-divider"></div>
+              <div class="team-panel-item" @click="goCreateTeam">
+                <div class="item-title">＋ 创建团队</div>
+                <div class="item-desc">发起多人协作</div>
+              </div>
+            </div>
+          </template>
+        </a-dropdown>
+        </div>
       </a-col>
       <!-- 用户信息展示栏 -->
       <a-col flex="260px">
         <div class="user-login-status">
           <div v-if="loginUserStore.loginUser.id">
-            <a-dropdown>
+            <a-dropdown trigger="['hover', 'click']">
               <a-space class="user-info">
                 <a-avatar :src="loginUserStore.loginUser.userAvatar" />
                 {{ loginUserStore.loginUser.userName ?? '视界用户' }}
               </a-space>
               <template #overlay>
-                <a-menu>
-                  <a-menu-item>
-                    <router-link to="/my_space">
-                      <UserOutlined />
-                      我的空间
-                    </router-link>
-                  </a-menu-item>
-                  <a-menu-item @click="doLogout">
-                    <LogoutOutlined />
-                    退出登录
-                  </a-menu-item>
-                </a-menu>
+                <div class="team-panel user-panel">
+                  <!-- 顶部：用户名 + 身份 -->
+                  <div class="user-panel-head">
+                    <div class="item-title">{{ loginUserStore.loginUser.userName ?? '视界用户' }}</div>
+                    <div class="item-desc">
+                      {{ loginUserStore.loginUser.userRole === 'admin' ? '管理员' : '普通用户' }}
+                    </div>
+                  </div>
+                  <div class="team-panel-divider"></div>
+                  <!-- 菜单项 -->
+                  <div class="team-panel-item user-panel-item" @click="router.push('/user/center')">
+                    <IdcardOutlined class="item-icon" />
+                    <span>用户中心</span>
+                  </div>
+                  <div class="team-panel-item user-panel-item" @click="router.push('/my_space')">
+                    <FolderOutlined class="item-icon" />
+                    <span>我的空间</span>
+                  </div>
+                  <div class="team-panel-divider"></div>
+                  <div class="team-panel-item user-panel-item" @click="doLogout">
+                    <LogoutOutlined class="item-icon" />
+                    <span>退出登录</span>
+                  </div>
+                </div>
               </template>
             </a-dropdown>
           </div>
@@ -55,7 +100,14 @@
 </template>
 <script lang="ts" setup>
 import { computed, h, ref, watchEffect } from 'vue'
-import { PictureOutlined, LogoutOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons-vue'
+import {
+  PictureOutlined,
+  LogoutOutlined,
+  TeamOutlined,
+  DownOutlined,
+  IdcardOutlined,
+  FolderOutlined,
+} from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import type { MenuProps } from 'ant-design-vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -120,39 +172,27 @@ const filterMenus = (menus = [] as MenuProps['items']) => {
   })
 }
 
-// 展示在菜单的路由数组（团队相关菜单：有团队时展示子菜单，无团队时展示创建入口）
+// 展示在菜单的路由数组（团队入口已改为独立的下拉面板，不再放入 a-menu）
 const items = computed<MenuProps['items']>(() => {
-  const menus = filterMenus(originItems) ?? []
-  if (loginUserStore.loginUser.id) {
-    const createTeamItem = {
-      key: '/add_space?type=' + SPACE_TYPE_ENUM.TEAM,
-      label: '＋ 创建团队',
-    }
-    if (teamSpaceList.value.length > 0) {
-      menus.push({
-        key: 'teamSpace',
-        icon: () => h(TeamOutlined),
-        label: '我的团队',
-        children: [
-          ...teamSpaceList.value.map((spaceUser) => ({
-            key: '/space/' + spaceUser.spaceId,
-            label: spaceUser.space?.spaceName,
-          })),
-          { type: 'divider' as const },
-          createTeamItem,
-        ],
-      })
-    } else {
-      menus.push({
-        key: '/add_space?type=' + SPACE_TYPE_ENUM.TEAM,
-        icon: () => h(TeamOutlined),
-        label: '我的团队',
-        title: '我的团队（点击创建团队）',
-      })
-    }
-  }
-  return menus
+  return filterMenus(originItems) ?? []
 })
+
+// ----- 我的团队下拉面板 -----
+// 角色文案
+const roleText = (role?: string) => {
+  if (role === 'admin') return '管理员'
+  if (role === 'editor') return '编辑者'
+  return '成员'
+}
+// 进入团队空间
+const goTeamSpace = (spaceId?: string | number) => {
+  if (!spaceId) return
+  router.push(`/space/${spaceId}`)
+}
+// 创建团队
+const goCreateTeam = () => {
+  router.push('/add_space?type=' + SPACE_TYPE_ENUM.TEAM)
+}
 
 // 团队空间列表（原侧边栏的“我的团队”菜单合并到这里）
 const teamSpaceList = ref<API.SpaceUserVO[]>([])
@@ -186,6 +226,8 @@ watchEffect(() => {
 const router = useRouter()
 // 当前要高亮的菜单项
 const current = ref<string[]>([])
+// 团队下拉面板展开状态（控制箭头旋转）
+const teamDropdownOpen = ref(false)
 // 监听路由变化，更新高亮菜单项
 router.afterEach((to, from, next) => {
   current.value = [to.path]
@@ -213,6 +255,73 @@ const doLogout = async () => {
 </script>
 
 <style scoped>
+#globalHeader .nav-wrap {
+  display: flex;
+  align-items: center;
+}
+
+#globalHeader .nav-menu {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 我的团队触发器：与导航菜单文字风格一致 */
+#globalHeader .team-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  height: 40px;
+  cursor: pointer;
+  color: #26283a;
+  font-size: 15px;
+  white-space: nowrap;
+  border-radius: 8px;
+  transition: color 0.2s ease;
+}
+
+#globalHeader .team-trigger:hover {
+  color: #1890ff;
+}
+
+.team-trigger-arrow {
+  font-size: 10px;
+  opacity: 0.55;
+  transition: transform 0.25s ease;
+}
+
+.team-trigger-arrow.open {
+  transform: rotate(180deg);
+}
+
+/* hover 时图标掉落弹跳动画（仿悦目菜单物品掉落效果） */
+@keyframes icon-drop-bounce {
+  0% {
+    transform: translateY(-16px) rotate(-8deg);
+    opacity: 0;
+  }
+  55% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(-5px);
+  }
+  85% {
+    transform: translateY(0);
+  }
+  92% {
+    transform: translateY(-2px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+#globalHeader .team-trigger:hover .team-icon {
+  animation: icon-drop-bounce 0.55s cubic-bezier(0.3, 0.6, 0.4, 1);
+}
+
 #globalHeader .title-bar {
   display: flex;
   align-items: center;
@@ -249,5 +358,91 @@ const doLogout = async () => {
 #globalHeader .user-info {
   cursor: pointer;
   color: #26283a;
+}
+</style>
+
+<style>
+/* 团队下拉面板：渲染在 body 下，需全局样式（浅色主题面板） */
+.team-panel {
+  min-width: 216px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 12px;
+  border: 1px solid #e4e8f2;
+  box-shadow: 0 12px 32px rgba(37, 55, 120, 0.12);
+  backdrop-filter: blur(8px);
+}
+
+.team-panel .team-panel-item {
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.team-panel .team-panel-item:hover {
+  background: #eef2ff;
+}
+
+.team-panel .item-title {
+  color: #26283a;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 22px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-panel .item-desc {
+  color: rgba(35, 44, 86, 0.55);
+  font-size: 12px;
+  line-height: 18px;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-panel .team-panel-item:hover .item-desc {
+  color: #4f6bff;
+}
+
+.team-panel .team-panel-divider {
+  height: 1px;
+  margin: 6px 8px;
+  background: #e4e8f2;
+}
+
+/* 头像用户面板：顶部用户名区 + 图标菜单项 */
+.user-panel {
+  min-width: 200px;
+}
+
+.user-panel .user-panel-head {
+  padding: 8px 12px 10px;
+}
+
+.user-panel .user-panel-head .item-title {
+  font-size: 15px;
+}
+
+.user-panel .user-panel-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #26283a;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.user-panel .item-icon {
+  font-size: 15px;
+  color: rgba(35, 44, 86, 0.6);
+  transition: color 0.15s ease;
+}
+
+.user-panel .team-panel-item:hover .item-icon {
+  color: #4f6bff;
 }
 </style>
