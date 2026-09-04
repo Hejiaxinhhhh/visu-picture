@@ -1,6 +1,7 @@
 package com.visupicture.controller;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.visupicture.common.BaseResponse;
 import com.visupicture.common.DeleteRequest;
@@ -13,15 +14,19 @@ import com.visupicture.manager.auth.model.SpaceUserPermissionConstant;
 import com.visupicture.model.dto.spaceuser.SpaceUserAddRequest;
 import com.visupicture.model.dto.spaceuser.SpaceUserEditRequest;
 import com.visupicture.model.dto.spaceuser.SpaceUserQueryRequest;
+import com.visupicture.model.entity.Picture;
 import com.visupicture.model.entity.Space;
 import com.visupicture.model.entity.SpaceUser;
 import com.visupicture.model.entity.User;
+import com.visupicture.model.enums.SpaceTypeEnum;
 import com.visupicture.model.vo.SpaceUserVO;
+import com.visupicture.service.PictureService;
 import com.visupicture.service.SpaceService;
 import com.visupicture.service.SpaceUserService;
 import com.visupicture.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -50,6 +55,12 @@ public class SpaceUserController {
 
     @Resource
     private SpaceService spaceService;
+
+    @Resource
+    private PictureService pictureService;
+
+    @Resource
+    private TransactionTemplate transactionTemplate;
 
     /**
      * 添加成员到空间
@@ -136,6 +147,58 @@ public class SpaceUserController {
         boolean result = spaceUserService.updateById(spaceUser);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
+    }
+
+    /**
+     * 退出团队空间（成员本人操作，删除自己的成员关联记录）
+     */
+    @PostMapping("/quit")
+    public BaseResponse<Boolean> quitSpaceUser(@RequestBody SpaceUserQueryRequest spaceUserQueryRequest,
+                                               HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        Long spaceId = spaceUserQueryRequest.getSpaceId();
+        ThrowUtils.throwIf(spaceId == null || spaceId <= 0, ErrorCode.PARAMS_ERROR);
+        // 判断空间是否存在
+        Space space = spaceService.getById(spaceId);
+        ThrowUtils.throwIf(space == null, ErrorCode.NOT_FOUND_ERROR, "空间不存在");
+        ThrowUtils.throwIf(ObjUtil.notEqual(space.getSpaceType(), SpaceTypeEnum.TEAM.getValue()),
+                ErrorCode.PARAMS_ERROR, "仅团队空间支持退出");
+        // 判断是否是团队成员
+        SpaceUser spaceUser = spaceUserService.lambdaQuery()
+                .eq(SpaceUser::getSpaceId, spaceId)
+                .eq(SpaceUser::getUserId, loginUser.getId())
+                .one();
+        ThrowUtils.throwIf(spaceUser == null, ErrorCode.NOT_FOUND_ERROR, "您不是该团队成员");
+        // 创建人退出 = 解散团队：删除空间并清空所有成员关联；普通成员仅删除自己的关联记录
+        boolean isOwner = space.getUserId().equals(loginUser.getId());
+        Boolean result = transactionTemplate.execute(status -> {
+            if (isOwner) {
+                // 删除空间内的图片记录，并异步清理对应的图片文件
+                List<Picture> pictureList = pictureService.lambdaQuery()
+                        .eq(Picture::getSpaceId, spaceId)
+                        .list();
+                if (CollUtil.isNotEmpty(pictureList)) {
+                    List<Long> pictureIds = pictureList.stream()
+                            .map(Picture::getId)
+                            .collect(Collectors.toList());
+                    pictureService.removeByIds(pictureIds);
+                    for (Picture picture : pictureList) {
+                        // 异步清理 COS 上的原图和缩略图（内部会判断 URL 是否被其他记录复用）
+                        pictureService.clearPictureFile(picture);
+                    }
+                }
+                boolean removeSpace = spaceService.removeById(spaceId);
+                ThrowUtils.throwIf(!removeSpace, ErrorCode.OPERATION_ERROR, "删除空间失败");
+                spaceUserService.lambdaUpdate()
+                        .eq(SpaceUser::getSpaceId, spaceId)
+                        .remove();
+            } else {
+                boolean removed = spaceUserService.removeById(spaceUser.getId());
+                ThrowUtils.throwIf(!removed, ErrorCode.OPERATION_ERROR);
+            }
+            return true;
+        });
+        return ResultUtils.success(Boolean.TRUE.equals(result));
     }
 
     /**

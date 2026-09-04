@@ -33,6 +33,14 @@
           空间分析
         </a-button>
         <a-button v-if="canEditPicture" :icon="h(EditOutlined)" @click="doBatchEdit"> 批量编辑</a-button>
+        <a-button
+          v-if="canQuitTeam"
+          danger
+          :icon="h(LogoutOutlined)"
+          @click="doQuitTeam"
+        >
+          退出团队
+        </a-button>
         <a-tooltip
           :title="`占用空间 ${formatSize(space.totalSize)} / ${formatSize(space.maxSize)}`"
         >
@@ -74,8 +82,9 @@
 
 <script setup lang="ts">
 import { computed, h, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { getSpaceVoByIdUsingGet } from '@/api/spaceController.ts'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import {
   listPictureVoByPageUsingPost,
   searchPictureByColorUsingPost,
@@ -86,8 +95,18 @@ import PictureSearchForm from '@/components/PictureSearchForm.vue'
 import { ColorPicker } from 'vue3-colorpicker'
 import 'vue3-colorpicker/style.css'
 import BatchEditPictureModal from '@/components/BatchEditPictureModal.vue'
-import { BarChartOutlined, EditOutlined, TeamOutlined } from '@ant-design/icons-vue'
+import {
+  BarChartOutlined,
+  EditOutlined,
+  LogoutOutlined,
+  TeamOutlined,
+} from '@ant-design/icons-vue'
 import { SPACE_PERMISSION_ENUM, SPACE_TYPE_ENUM, SPACE_TYPE_MAP } from '../constants/space.ts'
+import { quitSpaceUserUsingPost } from '@/api/spaceUserController.ts'
+import { useLoginUserStore } from '@/stores/useLoginUserStore.ts'
+
+const router = useRouter()
+const loginUserStore = useLoginUserStore()
 
 interface Props {
   id: string | number
@@ -108,6 +127,40 @@ const canManageSpaceUser = createPermissionChecker(SPACE_PERMISSION_ENUM.SPACE_U
 const canUploadPicture = createPermissionChecker(SPACE_PERMISSION_ENUM.PICTURE_UPLOAD)
 const canEditPicture = createPermissionChecker(SPACE_PERMISSION_ENUM.PICTURE_EDIT)
 const canDeletePicture = createPermissionChecker(SPACE_PERMISSION_ENUM.PICTURE_DELETE)
+
+// 退出团队：仅团队空间且当前用户是成员（有查看权限）时显示
+const canQuitTeam = computed(
+  () => space.value.spaceType === SPACE_TYPE_ENUM.TEAM && canViewPicture.value,
+)
+const canViewPicture = createPermissionChecker(SPACE_PERMISSION_ENUM.PICTURE_VIEW)
+
+// 退出团队
+const doQuitTeam = () => {
+  const isOwner = space.value.userId === loginUserStore.loginUser.id
+  Modal.confirm({
+    title: '退出团队',
+    centered: true,
+    okText: isOwner ? '确定解散团队' : '确定退出',
+    okType: 'danger',
+    cancelText: '取消',
+    content: isOwner
+      ? '您是该团队的创建人，退出后该团队空间将被解散，所有成员的关联记录将一并删除，且不可恢复，确定要解散吗？'
+      : '退出后将无法查看和操作该团队空间的图片，确定要退出吗？',
+    onOk: async () => {
+      try {
+        const res = await quitSpaceUserUsingPost({ spaceId: props.id as unknown as number })
+        if (res.data.code === 0) {
+          message.success('已退出团队')
+          router.push('/')
+        } else {
+          message.error('退出失败，' + res.data.message)
+        }
+      } catch (e: any) {
+        message.error('退出失败，' + e.message)
+      }
+    },
+  })
+}
 
 // -------- 获取空间详情 --------
 const fetchSpaceDetail = async () => {
