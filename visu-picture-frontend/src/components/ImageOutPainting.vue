@@ -46,6 +46,9 @@
         </a-form-item>
       </template>
     </a-form>
+    <div v-if="taskId" style="max-width: 420px; margin: 0 auto 12px">
+      <a-progress :percent="progress" status="active" />
+    </div>
     <a-flex justify="center" gap="16">
       <a-button
         type="primary"
@@ -94,6 +97,29 @@ const prompt = ref<string>('')
 // 任务 id
 const taskId = ref<string>()
 
+// 模拟进度：阿里云无百分比进度，按预估耗时用减速曲线估算，封顶 99%，任务完成跳 100%
+const progress = ref<number>(0)
+const ESTIMATED_MS = 12000
+let progressTimer: number | null = null
+
+const startProgress = () => {
+  stopProgress()
+  progress.value = 0
+  const startTime = Date.now()
+  progressTimer = window.setInterval(() => {
+    const ratio = (Date.now() - startTime) / ESTIMATED_MS
+    // 前快后慢：12 秒约 92%，24 秒后卡在 99% 等任务结束
+    progress.value = Math.min(99, Math.round(100 * (1 - Math.exp(-2.5 * ratio))))
+  }, 200)
+}
+
+const stopProgress = () => {
+  if (progressTimer) {
+    clearInterval(progressTimer)
+    progressTimer = null
+  }
+}
+
 /**
  * 创建任务
  */
@@ -119,6 +145,8 @@ const createTask = async () => {
     message.success('创建任务成功，请耐心等待，不要退出界面')
     console.log(res.data.data.output.taskId)
     taskId.value = res.data.data.output.taskId
+    // 启动模拟进度
+    startProgress()
     // 开启轮询
     startPolling()
   } else {
@@ -151,6 +179,7 @@ const startPolling = () => {
           // 专用扩图模型返回 outputImageUrl，万相编辑模型返回 results[0].url
           resultImageUrl.value =
             taskResult.outputImageUrl ?? taskResult.results?.[0]?.url ?? ''
+          progress.value = 100
           // 清理轮询
           clearPolling()
         } else if (taskResult.taskStatus === 'FAILED') {
@@ -183,6 +212,7 @@ const clearPolling = () => {
     pollingTimer = null
     taskId.value = null
   }
+  stopProgress()
 }
 
 // 是否正在上传
