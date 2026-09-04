@@ -160,7 +160,10 @@ onMounted(() => {
 
 <style scoped>
 #homePage {
-  margin-bottom: 16px;
+  max-width: 1600px;
+  margin: 0 auto 16px;
+  padding: 0 32px;
+  box-sizing: border-box;
 }
 
 /* Hero 区域：大标题 + 居中搜索卡片 */
