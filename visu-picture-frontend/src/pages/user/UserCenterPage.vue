@@ -51,6 +51,27 @@
           </div>
         </div>
       </a-card>
+
+      <!-- 管理员功能（仅管理员可见） -->
+      <a-card v-if="loginUser.userRole === 'admin'" class="entry-card admin-card" title="管理员功能">
+        <div class="entry-grid">
+          <div class="entry-item" @click="router.push('/admin/userManage')">
+            <UserOutlined class="entry-icon" style="color: #4f6bff" />
+            <div class="entry-title">用户管理</div>
+            <div class="entry-desc">管理平台用户</div>
+          </div>
+          <div class="entry-item" @click="router.push('/admin/pictureManage')">
+            <PictureOutlined class="entry-icon" style="color: #13c2c2" />
+            <div class="entry-title">图片管理</div>
+            <div class="entry-desc">审核与管理全站图片</div>
+          </div>
+          <div class="entry-item" @click="router.push('/admin/spaceManage')">
+            <AppstoreOutlined class="entry-icon" style="color: #722ed1" />
+            <div class="entry-title">空间管理</div>
+            <div class="entry-desc">查看与管理所有空间</div>
+          </div>
+        </div>
+      </a-card>
     </div>
   </div>
 </template>
@@ -59,10 +80,12 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import {
+  AppstoreOutlined,
   CrownOutlined,
   FolderOutlined,
   PictureOutlined,
   TeamOutlined,
+  UserOutlined,
 } from '@ant-design/icons-vue'
 import { useLoginUserStore } from '@/stores/useLoginUserStore.ts'
 
@@ -96,6 +119,11 @@ const formatDate = (time?: string) => {
   display: grid;
   grid-template-columns: 380px 1fr;
   gap: 16px;
+}
+
+/* 管理员功能卡片独占一行 */
+.admin-card {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 860px) {

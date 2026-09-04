@@ -1,23 +1,15 @@
 <template>
   <div id="globalHeader">
-    <a-row :wrap="false">
-      <a-col flex="260px">
-        <router-link to="/">
-          <div class="title-bar">
-            <img class="logo" src="../assets/logo-full.svg" alt="visu 视界云图库" />
-            <div class="title">视界云图库</div>
-          </div>
-        </router-link>
-      </a-col>
-      <a-col flex="auto">
-        <div class="nav-wrap">
-          <a-menu
-            v-model:selectedKeys="current"
-            mode="horizontal"
-            class="nav-menu"
-            :items="items"
-            @click="doMenuClick"
-          />
+    <div class="header-inner">
+      <!-- 左侧 Logo（点击回首页） -->
+      <router-link to="/" class="brand-link">
+        <div class="title-bar">
+          <img class="logo" src="../assets/logo-full.svg" alt="visu 视界云图库" />
+          <div class="title">视界云图库</div>
+        </div>
+      </router-link>
+      <!-- 右侧：我的团队 + 发布 + 用户信息 -->
+      <div class="nav-wrap">
         <!-- 我的团队：深色下拉面板（含团队列表与创建入口） -->
         <a-dropdown
           v-if="loginUserStore.loginUser.id"
@@ -48,10 +40,14 @@
             </div>
           </template>
         </a-dropdown>
+
+        <!-- 发布按钮（原"创建图片"入口） -->
+        <div class="publish-btn" @click="router.push('/add_picture')">
+          <PlusOutlined class="publish-icon" />
+          <span>发布</span>
         </div>
-      </a-col>
-      <!-- 用户信息展示栏 -->
-      <a-col flex="260px">
+
+        <!-- 用户信息展示栏 -->
         <div class="user-login-status">
           <div v-if="loginUserStore.loginUser.id">
             <a-dropdown trigger="['hover', 'click']">
@@ -94,22 +90,21 @@
             </a-space>
           </div>
         </div>
-      </a-col>
-    </a-row>
+      </div>
+    </div>
   </div>
 </template>
 <script lang="ts" setup>
-import { computed, h, ref, watchEffect } from 'vue'
+import { ref, watchEffect } from 'vue'
 import {
-  PictureOutlined,
   LogoutOutlined,
   TeamOutlined,
   DownOutlined,
   IdcardOutlined,
   FolderOutlined,
+  PlusOutlined,
 } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
-import type { MenuProps } from 'ant-design-vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useLoginUserStore } from '@/stores/useLoginUserStore.ts'
 import { userLogoutUsingPost } from '@/api/userController.ts'
@@ -117,65 +112,6 @@ import { SPACE_TYPE_ENUM } from '@/constants/space.ts'
 import { listMyTeamSpaceUsingPost } from '@/api/spaceUserController.ts'
 
 const loginUserStore = useLoginUserStore()
-
-// 未经过滤的菜单项（原侧边栏菜单已合并到这里）
-const originItems = [
-  {
-    key: '/',
-    icon: () => h(PictureOutlined),
-    label: '公共图库',
-    title: '公共图库',
-  },
-  {
-    key: '/add_picture',
-    label: '创建图片',
-    title: '创建图片',
-  },
-  {
-    key: '/my_space',
-    label: '我的空间',
-    title: '我的空间',
-  },
-  {
-    key: '/admin/userManage',
-    label: '用户管理',
-    title: '用户管理',
-  },
-  {
-    key: '/admin/pictureManage',
-    label: '图片管理',
-    title: '图片管理',
-  },
-  {
-    key: '/admin/spaceManage',
-    label: '空间管理',
-    title: '空间管理',
-  },
-]
-
-// 根据权限过滤菜单项
-const filterMenus = (menus = [] as MenuProps['items']) => {
-  return menus?.filter((menu) => {
-    const key = String(menu?.key ?? '')
-    // 管理员才能看到 /admin 开头的菜单
-    if (key.startsWith('/admin')) {
-      const loginUser = loginUserStore.loginUser
-      if (!loginUser || loginUser.userRole !== 'admin') {
-        return false
-      }
-    }
-    // 登录后才能看到空间相关菜单
-    if ((key === '/my_space' || key.startsWith('/add_space')) && !loginUserStore.loginUser.id) {
-      return false
-    }
-    return true
-  })
-}
-
-// 展示在菜单的路由数组（团队入口已改为独立的下拉面板，不再放入 a-menu）
-const items = computed<MenuProps['items']>(() => {
-  return filterMenus(originItems) ?? []
-})
 
 // ----- 我的团队下拉面板 -----
 // 角色文案
@@ -224,20 +160,9 @@ watchEffect(() => {
 })
 
 const router = useRouter()
-// 当前要高亮的菜单项
-const current = ref<string[]>([])
+
 // 团队下拉面板展开状态（控制箭头旋转）
 const teamDropdownOpen = ref(false)
-// 监听路由变化，更新高亮菜单项
-router.afterEach((to, from, next) => {
-  current.value = [to.path]
-})
-
-// 路由跳转事件
-const doMenuClick = ({ key }: { key: any }) => {
-  // 必须用字符串形式跳转，保留 key 中的 query 参数（如 /add_space?type=1）
-  router.push(String(key))
-}
 
 // 用户注销
 const doLogout = async () => {
@@ -255,14 +180,63 @@ const doLogout = async () => {
 </script>
 
 <style scoped>
+/* 头部整体布局：左 Logo，右侧功能区政府，消除固定列宽造成的空隙 */
+#globalHeader .header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+#globalHeader .brand-link {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 #globalHeader .nav-wrap {
   display: flex;
   align-items: center;
+  gap: 14px;
 }
 
-#globalHeader .nav-menu {
-  flex: 1;
-  min-width: 0;
+/* 发布按钮（原"创建图片"入口）：蓝色药丸 + 悬停动效 */
+#globalHeader .publish-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 20px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #4f6bff, #3d5af5);
+  box-shadow: 0 4px 14px rgba(61, 90, 245, 0.35);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition:
+    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.25s ease;
+}
+
+#globalHeader .publish-btn:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 8px 22px rgba(61, 90, 245, 0.5);
+}
+
+#globalHeader .publish-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+#globalHeader .publish-icon {
+  font-size: 14px;
+  transition: transform 0.25s ease;
+}
+
+#globalHeader .publish-btn:hover .publish-icon {
+  transform: rotate(90deg);
 }
 
 /* 我的团队触发器：与导航菜单文字风格一致 */
@@ -340,13 +314,6 @@ const doLogout = async () => {
 
 .logo {
   height: 42px;
-}
-
-/* 顶部导航居中，贴近参考样式 */
-#globalHeader :deep(.ant-menu-horizontal) {
-  justify-content: center;
-  border-bottom: none;
-  background: transparent;
 }
 
 #globalHeader .user-login-status {

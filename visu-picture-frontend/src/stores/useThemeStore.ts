@@ -20,7 +20,12 @@ export const useThemeStore = defineStore('theme', () => {
 
   const toggleTheme = () => {
     isDark.value = !isDark.value
+    // 切换期间挂上过渡类，让背景/文字/边框颜色平滑渐变，结束后移除避免影响日常渲染性能
+    document.documentElement.classList.add('theme-transitioning')
     applyTheme()
+    window.setTimeout(() => {
+      document.documentElement.classList.remove('theme-transitioning')
+    }, 1200)
   }
 
   return { isDark, toggleTheme }

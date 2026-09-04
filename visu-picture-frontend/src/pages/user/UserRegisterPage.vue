@@ -5,7 +5,7 @@
         <img class="logo" src="../../assets/logo-full.svg" alt="visu 视界云图库" />
       </div>
       <h2 class="title">创建账户</h2>
-      <div class="desc">加入视界云图库，开启你的创作之旅</div>
+      <div class="desc">加入视界云图库</div>
       <a-form :model="formState" name="basic" autocomplete="off" @finish="handleSubmit">
         <a-form-item name="userAccount" :rules="[{ required: true, message: '请输入账号' }]">
           <a-input v-model:value="formState.userAccount" size="large" placeholder="请输入账号" />
