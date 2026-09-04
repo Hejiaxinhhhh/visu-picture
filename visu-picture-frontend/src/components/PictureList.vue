@@ -1,49 +1,50 @@
 <template>
   <div class="picture-list">
-    <!-- 图片列表 -->
-    <a-list
-      :grid="{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 4, xl: 5, xxl: 6 }"
-      :data-source="dataList"
-      :loading="loading"
-    >
-      <template #renderItem="{ item: picture }">
-        <a-list-item style="padding: 0">
-          <!-- 单张图片 -->
-          <a-card hoverable @click="doClickPicture(picture)">
-            <template #cover>
-              <img
-                :alt="picture.name"
-                :src="picture.thumbnailUrl ?? picture.url"
-                style="height: 180px; object-fit: cover"
-                loading="lazy"
-                decoding="async"
-              />
-            </template>
-            <a-card-meta :title="picture.name">
-              <template #description>
-                <a-flex>
-                  <a-tag color="green">
-                    {{ picture.category ?? '默认' }}
-                  </a-tag>
-                  <a-tag v-for="tag in picture.tags" :key="tag">
-                    {{ tag }}
-                  </a-tag>
-                </a-flex>
-              </template>
-            </a-card-meta>
-            <template v-if="showOp" #actions>
-              <ShareAltOutlined @click="(e) => doShare(picture, e)" />
-              <SearchOutlined @click="(e) => doSearch(picture, e)" />
-              <EditOutlined v-if="canEdit" @click="(e) => doEdit(picture, e)" />
-              <DeleteOutlined v-if="canDelete" @click="(e) => doDelete(picture, e)" />
-            </template>
-          </a-card>
-        </a-list-item>
-      </template>
-    </a-list>
+    <!-- Justified 瀑布流：每行等宽铺满，图片保持原始宽高比 -->
+    <div ref="listRef" class="justified-list">
+      <a-spin v-if="loading && dataList.length === 0" class="list-spin" />
+      <div
+        v-for="(row, rowIndex) in rows"
+        :key="rowIndex"
+        class="justified-row"
+      >
+        <div
+          v-for="cell in row.items"
+          :key="cell.picture.id"
+          class="justified-item"
+          :style="{ width: itemWidth(cell, row.height) + 'px', height: row.height + 'px' }"
+          @click="doClickPicture(cell.picture)"
+        >
+          <img
+            :alt="cell.picture.name"
+            :src="cell.picture.thumbnailUrl ?? cell.picture.url"
+            loading="lazy"
+            decoding="async"
+          />
+          <!-- 悬浮信息层 -->
+          <div class="item-overlay">
+            <div class="overlay-top">
+              <div class="pic-name">{{ cell.picture.name }}</div>
+              <div class="pic-tags">
+                <a-tag color="green">{{ cell.picture.category ?? '默认' }}</a-tag>
+                <a-tag v-for="tag in cell.picture.tags?.slice(0, 2)" :key="tag">
+                  {{ tag }}
+                </a-tag>
+              </div>
+            </div>
+            <div v-if="showOp" class="overlay-actions" @click.stop>
+              <ShareAltOutlined @click="(e) => doShare(cell.picture, e)" />
+              <SearchOutlined @click="(e) => doSearch(cell.picture, e)" />
+              <EditOutlined v-if="canEdit" @click="(e) => doEdit(cell.picture, e)" />
+              <DeleteOutlined v-if="canDelete" @click="(e) => doDelete(cell.picture, e)" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     <!-- 滚动加载哨兵：进入视口时触发 loadMore -->
     <div ref="sentinelRef" class="load-more-sentinel">
-      <a-spin v-if="loading" size="small" />
+      <a-spin v-if="loading && dataList.length > 0" size="small" />
       <span v-else-if="finished" class="no-more-text">没有更多了</span>
     </div>
     <ShareModal ref="shareModalRef" :link="shareLink" />
@@ -61,7 +62,7 @@ import {
 import { deletePictureUsingPost } from '@/api/pictureController.ts'
 import { message } from 'ant-design-vue'
 import ShareModal from '@/components/ShareModal.vue'
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 
 interface Props {
   dataList?: API.PictureVO[]
@@ -87,26 +88,96 @@ const emit = defineEmits<{
   (e: 'loadMore'): void
 }>()
 
+// ----- Justified 瀑布流布局 -----
+const listRef = ref<HTMLDivElement>()
+const containerWidth = ref(0)
+const GUTTER = 8 // 行内/行间距
+const TARGET_ROW_HEIGHT = 240 // 目标行高
+let resizeObserver: ResizeObserver | null = null
+
+// 宽高比兜底：数据缺失时按 3:2 处理
+const getRatio = (picture: API.PictureVO) => {
+  const w = picture.picWidth
+  const h = picture.picHeight
+  if (!w || !h || w <= 0 || h <= 0) return 1.5
+  return w / h
+}
+
+// 贪心分行：以目标行高逐张放入，当整行宽度达到容器宽度时成行，
+// 实际行高 = 容器宽 / 行内宽高比之和（行内等高、铺满无空隙）；最后一行不拉伸
+interface RowItem {
+  picture: API.PictureVO
+  ratio: number
+}
+interface JustifiedRow {
+  items: RowItem[]
+  height: number
+}
+
+const rows = computed<JustifiedRow[]>(() => {
+  const width = containerWidth.value
+  if (width <= 0) return []
+  const result: JustifiedRow[] = []
+  let currentRow: RowItem[] = []
+  let ratioSum = 0
+  for (const picture of props.dataList) {
+    const ratio = getRatio(picture)
+    currentRow.push({ picture, ratio })
+    ratioSum += ratio
+    const gaps = GUTTER * (currentRow.length - 1)
+    // 以目标行高渲染时的整行宽度
+    const rowWidthAtTarget = ratioSum * (TARGET_ROW_HEIGHT - GUTTER) + gaps
+    if (rowWidthAtTarget >= width) {
+      result.push({
+        items: currentRow,
+        height: Math.round((width - gaps) / ratioSum),
+      })
+      currentRow = []
+      ratioSum = 0
+    }
+  }
+  // 最后一行不足：按目标行高展示，不拉伸铺满
+  if (currentRow.length > 0) {
+    result.push({ items: currentRow, height: TARGET_ROW_HEIGHT })
+  }
+  return result
+})
+
+// 单元格宽度：行高 × 宽高比（最后一行也按行高算，保持原始比例）
+const itemWidth = (cell: RowItem, height: number) =>
+  Math.round(cell.ratio * (height - GUTTER))
+
+onMounted(() => {
+  if (listRef.value) {
+    resizeObserver = new ResizeObserver((entries) => {
+      containerWidth.value = Math.floor(entries[0].contentRect.width)
+    })
+    resizeObserver.observe(listRef.value)
+  }
+})
+
+onUnmounted(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
+
 // ----- 滚动加载（IntersectionObserver） -----
 const sentinelRef = ref<HTMLDivElement>()
 let observer: IntersectionObserver | null = null
-// 上次触发时间，防止加载失败时短时间内无限重试
-let lastLoadTime = 0
 
+// loading 状态本身即防重（加载中不重复触发）；失败重试由下方 autoRetryCount 限制
 const tryLoadMore = () => {
   if (props.loading || props.finished) return
-  const now = Date.now()
-  if (now - lastLoadTime < 1000) return
-  lastLoadTime = now
   emit('loadMore')
 }
 
-// 判断哨兵当前是否在视口内（含预加载余量）
+// 判断哨兵当前是否在视口内（含预加载余量，与 IO rootMargin 保持一致）
+const PRELOAD_MARGIN = 800
 const isSentinelVisible = () => {
   const el = sentinelRef.value
   if (!el) return false
   const rect = el.getBoundingClientRect()
-  return rect.top < window.innerHeight + 200
+  return rect.top < window.innerHeight + PRELOAD_MARGIN
 }
 
 onMounted(() => {
@@ -116,7 +187,7 @@ onMounted(() => {
         tryLoadMore()
       }
     },
-    { rootMargin: '200px 0px' },
+    { rootMargin: `${PRELOAD_MARGIN}px 0px` },
   )
   if (sentinelRef.value) {
     observer.observe(sentinelRef.value)
@@ -215,25 +286,109 @@ const doShare = (picture, e) => {
 </script>
 
 <style scoped>
-/* 图片卡片：圆角 + 柔和阴影 + 悬浮上浮 */
-.picture-list :deep(.ant-card) {
-  border-radius: 14px;
+.justified-list {
+  min-height: 200px;
+  width: 100%;
+}
+
+.justified-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.justified-row:last-child {
+  margin-bottom: 0;
+}
+
+.justified-item {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 12px;
   overflow: hidden;
-  border: 1px solid #eceff7;
-  box-shadow: 0 2px 10px rgba(37, 55, 120, 0.05);
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(37, 55, 120, 0.06);
   transition:
     transform 0.25s ease,
     box-shadow 0.25s ease;
 }
 
-.picture-list :deep(.ant-card:hover) {
-  transform: translateY(-4px);
-  border-color: rgba(61, 90, 245, 0.35);
-  box-shadow: 0 14px 30px rgba(37, 55, 120, 0.14);
+.justified-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(37, 55, 120, 0.16);
 }
 
-.picture-list :deep(.ant-card .ant-card-body) {
-  padding: 12px 14px;
+.justified-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #f0f2f7;
+}
+
+/* 悬浮信息层：默认隐藏，hover 渐显 */
+.item-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  background: linear-gradient(
+    180deg,
+    rgba(10, 15, 40, 0.45) 0%,
+    rgba(10, 15, 40, 0) 40%,
+    rgba(10, 15, 40, 0) 60%,
+    rgba(10, 15, 40, 0.5) 100%
+  );
+}
+
+.justified-item:hover .item-overlay {
+  opacity: 1;
+}
+
+.overlay-top .pic-name {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.overlay-top .pic-tags :deep(.ant-tag) {
+  margin: 0 4px 0 0;
+  font-size: 11px;
+  line-height: 18px;
+  padding: 0 6px;
+  border: none;
+}
+
+.overlay-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  color: #fff;
+  font-size: 16px;
+}
+
+.overlay-actions :deep(span) {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.overlay-actions :deep(span:hover) {
+  transform: scale(1.2);
+}
+
+.list-spin {
+  display: block;
+  margin: 60px auto;
+  width: 100%;
+  text-align: center;
 }
 
 .load-more-sentinel {
