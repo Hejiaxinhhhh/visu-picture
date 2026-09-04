@@ -142,8 +142,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             pictureId = pictureUploadRequest.getId();
         }
         // 如果是更新，判断图片是否存在
+        Picture oldPicture = null;
         if (pictureId != null) {
-            Picture oldPicture = this.getById(pictureId);
+            oldPicture = this.getById(pictureId);
             ThrowUtils.throwIf(oldPicture == null, ErrorCode.NOT_FOUND_ERROR, "图片不存在");
             // 改为使用统一的权限校验
 //            // 仅本人或管理员可编辑图片
@@ -225,8 +226,10 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             }
             return picture;
         });
-        // 可自行实现，如果是更新，可以清理图片资源
-        // this.clearPictureFile(oldPicture);
+        // 如果是更新且图片 URL 发生变化，异步清理旧的图片资源（URL 未变时不能清理，否则会误删在用文件）
+        if (oldPicture != null && ObjUtil.notEqual(oldPicture.getUrl(), picture.getUrl())) {
+            this.clearPictureFile(oldPicture);
+        }
         return PictureVO.objToVo(picture);
     }
 
