@@ -1,0 +1,27 @@
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+
+const THEME_KEY = 'visu-theme'
+
+/**
+ * 全局主题（浅色/深色）状态
+ * 切换时在 html 根元素上挂/摘 dark class，配合全局样式与 antd darkAlgorithm 生效
+ */
+export const useThemeStore = defineStore('theme', () => {
+  const isDark = ref<boolean>(localStorage.getItem(THEME_KEY) === 'dark')
+
+  const applyTheme = () => {
+    document.documentElement.classList.toggle('dark', isDark.value)
+    localStorage.setItem(THEME_KEY, isDark.value ? 'dark' : 'light')
+  }
+
+  // 初始化时同步一次（处理刷新后恢复）
+  applyTheme()
+
+  const toggleTheme = () => {
+    isDark.value = !isDark.value
+    applyTheme()
+  }
+
+  return { isDark, toggleTheme }
+})

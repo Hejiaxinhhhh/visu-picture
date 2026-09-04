@@ -81,3 +81,182 @@ a {
 ::selection {
   background: rgba(61, 90, 245, 0.18);
 }
+
+/* ===== 主题切换渐变：仅切换瞬间挂 theme-transitioning 类时生效 ===== */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition:
+    background-color 0.4s ease,
+    color 0.4s ease,
+    border-color 0.4s ease,
+    box-shadow 0.4s ease,
+    fill 0.4s ease,
+    stroke 0.4s ease !important;
+}
+
+/* ===== 深色模式（html.dark，配合 antd darkAlgorithm） ===== */
+html.dark body {
+  color: #c9cde4;
+  background-color: #101320;
+  background-image:
+    linear-gradient(to right, rgba(120, 140, 220, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(120, 140, 220, 0.06) 1px, transparent 1px);
+}
+
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark h5,
+html.dark h6 {
+  color: #e8eaf6;
+}
+
+/* 顶部导航栏 */
+html.dark #basicLayout .header {
+  background: rgba(20, 25, 42, 0.92);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+html.dark #basicLayout .team-trigger,
+html.dark #basicLayout .user-info {
+  color: #c9cde4;
+}
+
+html.dark #basicLayout .title {
+  color: #e8eaf6;
+  border-left-color: rgba(255, 255, 255, 0.12);
+}
+
+/* 页脚 */
+html.dark #basicLayout .footer,
+html.dark #basicLayout .footer a {
+  color: rgba(200, 208, 240, 0.45);
+}
+
+/* 卡片与弹层 */
+html.dark .ant-card {
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+}
+
+html.dark .ant-card .ant-card-head {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+/* 下拉面板（团队/用户面板在 GlobalHeader 全局样式中定义） */
+html.dark .team-panel {
+  background: rgba(30, 36, 56, 0.98);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+html.dark .team-panel .team-panel-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+html.dark .team-panel .item-title {
+  color: #e8eaf6;
+}
+
+html.dark .team-panel .item-desc {
+  color: rgba(200, 208, 240, 0.55);
+}
+
+html.dark .team-panel .user-panel-item {
+  color: #c9cde4;
+}
+
+html.dark .team-panel .team-panel-divider {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+html.dark .team-panel .item-icon {
+  color: rgba(200, 208, 240, 0.6);
+}
+
+/* 搜索卡片与标签药丸（首页） */
+html.dark #homePage .search-bar {
+  background: #1a2032;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* 注意：main.css 是全局样式，:deep() 不是合法选择器会导致整条规则失效，直接写类名 */
+/* 双类名 .ant-tag.ant-tag-checkable 提高优先级，压过组件 scoped 的浅色规则 */
+html.dark #homePage .tag-bar .ant-tag.ant-tag-checkable {
+  background: #1a2032;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #c9cde4;
+}
+
+html.dark #homePage .tag-bar .ant-tag.ant-tag-checkable:hover {
+  color: #7d92ff;
+  border-color: rgba(61, 90, 245, 0.6);
+}
+
+html.dark #homePage .tag-label {
+  color: rgba(200, 208, 240, 0.65);
+}
+
+/* 首页副标题 */
+html.dark #homePage .hero-desc {
+  color: rgba(200, 208, 240, 0.6);
+}
+
+/* 用户中心：个人信息与快捷入口文字 */
+html.dark #userCenterPage .profile-name,
+html.dark #userCenterPage .desc-content,
+html.dark #userCenterPage .entry-title {
+  color: #e8eaf6;
+}
+
+html.dark #userCenterPage .profile-account,
+html.dark #userCenterPage .desc-label,
+html.dark #userCenterPage .entry-desc {
+  color: rgba(200, 208, 240, 0.55);
+}
+
+html.dark #userCenterPage .profile-avatar {
+  background: #1a2032;
+}
+
+html.dark #userCenterPage .entry-item {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html.dark #userCenterPage .entry-item:hover {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* 登录 / 注册页：白色卡片与说明文字 */
+html.dark .auth-card {
+  background: #161c2e;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+}
+
+html.dark .auth-card .desc,
+html.dark .auth-card .tips {
+  color: rgba(200, 208, 240, 0.55);
+}
+
+/* 滚动条 */
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+/* 瀑布流图片底色与文字 */
+html.dark .justified-item img {
+  background: #1a2032;
+}
+
+html.dark .no-more-text {
+  color: rgba(200, 208, 240, 0.45);
+}
