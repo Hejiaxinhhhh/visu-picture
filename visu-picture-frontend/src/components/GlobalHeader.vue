@@ -58,7 +58,7 @@ import { computed, h, ref, watchEffect } from 'vue'
 import { PictureOutlined, LogoutOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'
 import type { MenuProps } from 'ant-design-vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useLoginUserStore } from '@/stores/useLoginUserStore.ts'
 import { userLogoutUsingPost } from '@/api/userController.ts'
 import { SPACE_TYPE_ENUM } from '@/constants/space.ts'
@@ -83,11 +83,6 @@ const originItems = [
     key: '/my_space',
     label: '我的空间',
     title: '我的空间',
-  },
-  {
-    key: '/add_space?type=' + SPACE_TYPE_ENUM.TEAM,
-    label: '创建团队',
-    title: '创建团队',
   },
   {
     key: '/admin/userManage',
@@ -125,31 +120,53 @@ const filterMenus = (menus = [] as MenuProps['items']) => {
   })
 }
 
-// 展示在菜单的路由数组（有团队空间时追加“我的团队”子菜单）
+// 展示在菜单的路由数组（团队相关菜单：有团队时展示子菜单，无团队时展示创建入口）
 const items = computed<MenuProps['items']>(() => {
   const menus = filterMenus(originItems) ?? []
-  if (teamSpaceList.value.length > 0) {
-    menus.push({
-      key: 'teamSpace',
-      icon: () => h(TeamOutlined),
-      label: '我的团队',
-      children: teamSpaceList.value.map((spaceUser) => ({
-        key: '/space/' + spaceUser.spaceId,
-        label: spaceUser.space?.spaceName,
-      })),
-    })
+  if (loginUserStore.loginUser.id) {
+    const createTeamItem = {
+      key: '/add_space?type=' + SPACE_TYPE_ENUM.TEAM,
+      label: '＋ 创建团队',
+    }
+    if (teamSpaceList.value.length > 0) {
+      menus.push({
+        key: 'teamSpace',
+        icon: () => h(TeamOutlined),
+        label: '我的团队',
+        children: [
+          ...teamSpaceList.value.map((spaceUser) => ({
+            key: '/space/' + spaceUser.spaceId,
+            label: spaceUser.space?.spaceName,
+          })),
+          { type: 'divider' as const },
+          createTeamItem,
+        ],
+      })
+    } else {
+      menus.push({
+        key: '/add_space?type=' + SPACE_TYPE_ENUM.TEAM,
+        icon: () => h(TeamOutlined),
+        label: '我的团队',
+        title: '我的团队（点击创建团队）',
+      })
+    }
   }
   return menus
 })
 
 // 团队空间列表（原侧边栏的“我的团队”菜单合并到这里）
 const teamSpaceList = ref<API.SpaceUserVO[]>([])
+const route = useRoute()
 
 // 加载团队空间列表
 const fetchTeamSpaceList = async () => {
   const res = await listMyTeamSpaceUsingPost()
   if (res.data.code === 0 && res.data.data) {
-    teamSpaceList.value = res.data.data
+    const next = res.data.data ?? []
+    // 内容没变化时不更新引用，避免菜单 items 频繁重建导致悬停弹出层失效
+    if (JSON.stringify(next) !== JSON.stringify(teamSpaceList.value)) {
+      teamSpaceList.value = next
+    }
   } else {
     message.error('加载我的团队空间失败，' + res.data.message)
   }
@@ -159,8 +176,9 @@ const fetchTeamSpaceList = async () => {
  * 监听变量，改变时触发数据的重新加载
  */
 watchEffect(() => {
-  // 登录才加载
+  // 登录才加载；同时依赖路由路径，创建/加入团队后跳转会自动刷新列表
   if (loginUserStore.loginUser.id) {
+    route.path
     fetchTeamSpaceList()
   }
 })
@@ -175,9 +193,8 @@ router.afterEach((to, from, next) => {
 
 // 路由跳转事件
 const doMenuClick = ({ key }: { key: any }) => {
-  router.push({
-    path: key,
-  })
+  // 必须用字符串形式跳转，保留 key 中的 query 参数（如 /add_space?type=1）
+  router.push(String(key))
 }
 
 // 用户注销

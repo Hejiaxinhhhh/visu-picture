@@ -16,10 +16,12 @@ import com.visupicture.exception.ThrowUtils;
 import com.visupicture.manager.auth.SpaceUserAuthManager;
 import com.visupicture.model.dto.space.*;
 import com.visupicture.model.entity.Space;
+import com.visupicture.model.entity.SpaceUser;
 import com.visupicture.model.entity.User;
 import com.visupicture.model.enums.SpaceLevelEnum;
 import com.visupicture.model.vo.SpaceVO;
 import com.visupicture.service.SpaceService;
+import com.visupicture.service.SpaceUserService;
 import com.visupicture.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -51,6 +53,9 @@ public class SpaceController {
     private SpaceService spaceService;
 
     @Resource
+    private SpaceUserService spaceUserService;
+
+    @Resource
     private SpaceUserAuthManager spaceUserAuthManager;
 
     @PostMapping("/add")
@@ -77,6 +82,10 @@ public class SpaceController {
         // 操作数据库
         boolean result = spaceService.removeById(id);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        // 同步清理团队成员记录，避免残留导致“我的团队”出现空项
+        spaceUserService.lambdaUpdate()
+                .eq(SpaceUser::getSpaceId, id)
+                .remove();
         return ResultUtils.success(true);
     }
 

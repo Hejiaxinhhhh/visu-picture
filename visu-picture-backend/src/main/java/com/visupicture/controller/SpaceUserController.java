@@ -1,5 +1,6 @@
 package com.visupicture.controller;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.visupicture.common.BaseResponse;
 import com.visupicture.common.DeleteRequest;
@@ -12,9 +13,11 @@ import com.visupicture.manager.auth.model.SpaceUserPermissionConstant;
 import com.visupicture.model.dto.spaceuser.SpaceUserAddRequest;
 import com.visupicture.model.dto.spaceuser.SpaceUserEditRequest;
 import com.visupicture.model.dto.spaceuser.SpaceUserQueryRequest;
+import com.visupicture.model.entity.Space;
 import com.visupicture.model.entity.SpaceUser;
 import com.visupicture.model.entity.User;
 import com.visupicture.model.vo.SpaceUserVO;
+import com.visupicture.service.SpaceService;
 import com.visupicture.service.SpaceUserService;
 import com.visupicture.service.UserService;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +29,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 空间成员管理
@@ -41,6 +47,9 @@ public class SpaceUserController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private SpaceService spaceService;
 
     /**
      * 添加成员到空间
@@ -140,6 +149,19 @@ public class SpaceUserController {
         List<SpaceUser> spaceUserList = spaceUserService.list(
                 spaceUserService.getQueryWrapper(spaceUserQueryRequest)
         );
+        // 过滤掉空间已被删除的残留成员记录
+        List<Long> spaceIds = spaceUserList.stream()
+                .map(SpaceUser::getSpaceId)
+                .collect(Collectors.toList());
+        if (CollUtil.isEmpty(spaceIds)) {
+            return ResultUtils.success(new ArrayList<>());
+        }
+        Set<Long> validSpaceIds = spaceService.listByIds(spaceIds).stream()
+                .map(Space::getId)
+                .collect(Collectors.toSet());
+        spaceUserList = spaceUserList.stream()
+                .filter(spaceUser -> validSpaceIds.contains(spaceUser.getSpaceId()))
+                .collect(Collectors.toList());
         return ResultUtils.success(spaceUserService.getSpaceUserVOList(spaceUserList));
     }
 }
