@@ -5,6 +5,7 @@ import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.NumberUtil;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.core.util.StrUtil;
 import com.qcloud.cos.model.PutObjectResult;
 import com.qcloud.cos.model.ciModel.persistence.CIObject;
 import com.qcloud.cos.model.ciModel.persistence.ImageInfo;
@@ -127,7 +128,11 @@ public abstract class PictureUploadTemplate {
         uploadPictureResult.setPicScale(picScale);
         uploadPictureResult.setPicFormat(compressedCiObject.getFormat());
         uploadPictureResult.setPicColor(imageInfo.getAve());
-        // 设置缩略图地址
+        // 设置缩略图地址；数据万象对无后缀文件（如 URL 抓图）可能生成尾带点的无效缩略图 key，此时回退使用压缩图
+        String thumbnailKey = thumbnailCiObject.getKey();
+        if (StrUtil.isBlank(thumbnailKey) || thumbnailKey.endsWith(".")) {
+            thumbnailCiObject = compressedCiObject;
+        }
         uploadPictureResult.setThumbnailUrl(cosClientConfig.getHost() + "/" + thumbnailCiObject.getKey());
         // 返回可访问的地址
         return uploadPictureResult;

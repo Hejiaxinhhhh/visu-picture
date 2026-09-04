@@ -1,5 +1,6 @@
 package com.visupicture.model.vo;
 
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.visupicture.model.entity.Picture;
 import lombok.Data;
@@ -27,6 +28,19 @@ public class PictureVO implements Serializable {
      * 缩略图 url
      */
     private String thumbnailUrl;
+
+    /**
+     * 获取缩略图地址：无缩略图时，对腾讯 COS 图片回退为动态裁剪的轻量缩略图，提升列表加载速度
+     */
+    public String getThumbnailUrl() {
+        if (StrUtil.isNotBlank(thumbnailUrl)) {
+            return thumbnailUrl;
+        }
+        if (StrUtil.isNotBlank(url) && url.contains("myqcloud.com")) {
+            return url + "?imageMogr2/thumbnail/400x";
+        }
+        return url;
+    }
 
     /**
      * 图片名称

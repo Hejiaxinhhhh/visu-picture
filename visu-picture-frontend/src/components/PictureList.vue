@@ -128,13 +128,25 @@ onUnmounted(() => {
   observer = null
 })
 
-// 数据加载结束后，若哨兵仍在视口内（数据不满一屏），自动继续加载
+// 数据加载结束后，若哨兵仍在视口内（如新图片懒加载高度未撑开），自动续载下一页；
+// 绕过节流（节流仅用于 IntersectionObserver 高频回调），但限制失败重试次数防死循环
+let lastListLength = 0
+let autoRetryCount = 0
 watch(
   () => [props.dataList.length, props.loading],
   () => {
     nextTick(() => {
-      if (!props.loading && !props.finished && isSentinelVisible()) {
-        tryLoadMore()
+      if (props.loading || props.finished) return
+      // 数据长度未变化视为本次加载失败，最多连续重试 3 次后停止
+      if (props.dataList.length === lastListLength) {
+        autoRetryCount++
+        if (autoRetryCount >= 3) return
+      } else {
+        autoRetryCount = 0
+      }
+      lastListLength = props.dataList.length
+      if (isSentinelVisible()) {
+        emit('loadMore')
       }
     })
   },
