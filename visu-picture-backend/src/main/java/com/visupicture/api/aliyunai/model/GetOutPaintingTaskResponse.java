@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * 查询扩图任务响应类
  */
@@ -70,6 +72,11 @@ public class GetOutPaintingTaskResponse {
         private String outputImageUrl;
 
         /**
+         * 生成结果列表（wanx2.1-imageedit 等任务返回此字段）
+         */
+        private List<Result> results;
+
+        /**
          * 接口错误码
          * <p>接口成功请求不会返回该参数</p>
          */
@@ -107,5 +114,17 @@ public class GetOutPaintingTaskResponse {
          * 失败任务数
          */
         private Integer failed;
+    }
+
+    /**
+     * 生成结果
+     */
+    @Data
+    public static class Result {
+
+        /**
+         * 结果图片 URL
+         */
+        private String url;
     }
 }

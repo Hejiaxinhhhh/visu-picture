@@ -22,8 +22,40 @@
       </a-col>
     </a-row>
     <div style="margin-bottom: 16px" />
+    <a-form layout="inline" style="margin-bottom: 16px">
+      <a-form-item label="扩图模型">
+        <a-select v-model:value="model" style="width: 240px">
+          <a-select-option value="image-out-painting">专用扩图</a-select-option>
+          <a-select-option value="wanx2.1-imageedit">万相编辑</a-select-option>
+        </a-select>
+      </a-form-item>
+      <template v-if="model === 'image-out-painting'">
+        <a-form-item label="横向比例">
+          <a-input-number v-model:value="xScale" :min="1" :max="3" :step="0.1" />
+        </a-form-item>
+        <a-form-item label="纵向比例">
+          <a-input-number v-model:value="yScale" :min="1" :max="3" :step="0.1" />
+        </a-form-item>
+      </template>
+      <template v-else>
+        <a-form-item label="扩展比例">
+          <a-input-number v-model:value="expandScale" :min="1" :max="2" :step="0.1" />
+        </a-form-item>
+        <a-form-item required label="提示词">
+          <a-input v-model:value="prompt" placeholder="请输入提示词，引导扩图内容" style="width: 200px" />
+        </a-form-item>
+      </template>
+    </a-form>
     <a-flex justify="center" gap="16">
-      <a-button type="primary" :loading="!!taskId" ghost @click="createTask">生成图片</a-button>
+      <a-button
+        type="primary"
+        :loading="!!taskId"
+        ghost
+        :disabled="model === 'wanx2.1-imageedit' && !prompt.trim()"
+        @click="createTask"
+      >
+        生成图片
+      </a-button>
       <a-button v-if="resultImageUrl" type="primary" :loading="uploadLoading" @click="handleUpload">
         应用结果
       </a-button>
@@ -50,6 +82,15 @@ const props = defineProps<Props>()
 
 const resultImageUrl = ref<string>('')
 
+// 扩图模型：image-out-painting（专用扩图）/ wanx2.1-imageedit（万相通用图像编辑）
+const model = ref<string>('image-out-painting')
+// 专用扩图模型参数：横纵向扩展比例
+const xScale = ref<number>(1.3)
+const yScale = ref<number>(1.3)
+// 万相编辑模型参数：四方向统一扩展比例与提示词
+const expandScale = ref<number>(1.3)
+const prompt = ref<string>('')
+
 // 任务 id
 const taskId = ref<string>()
 
@@ -60,14 +101,20 @@ const createTask = async () => {
   if (!props.picture?.id) {
     return
   }
-  const res = await createPictureOutPaintingTaskUsingPost({
+  const params: API.CreatePictureOutPaintingTaskRequest = {
     pictureId: props.picture.id,
-    // 根据需要设置扩图参数
-    parameters: {
-      xScale: 2,
-      yScale: 2,
-    },
-  })
+    model: model.value,
+  }
+  if (model.value === 'image-out-painting') {
+    params.parameters = {
+      xScale: xScale.value,
+      yScale: yScale.value,
+    }
+  } else {
+    params.expandScale = expandScale.value
+    params.prompt = prompt.value || undefined
+  }
+  const res = await createPictureOutPaintingTaskUsingPost(params)
   if (res.data.code === 0 && res.data.data) {
     message.success('创建任务成功，请耐心等待，不要退出界面')
     console.log(res.data.data.output.taskId)
@@ -101,7 +148,9 @@ const startPolling = () => {
         const taskResult = res.data.data.output
         if (taskResult.taskStatus === 'SUCCEEDED') {
           message.success('扩图任务执行成功')
-          resultImageUrl.value = taskResult.outputImageUrl
+          // 专用扩图模型返回 outputImageUrl，万相编辑模型返回 results[0].url
+          resultImageUrl.value =
+            taskResult.outputImageUrl ?? taskResult.results?.[0]?.url ?? ''
           // 清理轮询
           clearPolling()
         } else if (taskResult.taskStatus === 'FAILED') {

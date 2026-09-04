@@ -187,7 +187,14 @@ declare namespace API {
   }
 
   type CreatePictureOutPaintingTaskRequest = {
+    /** 可选，四方向统一扩展比例，范围 [1.0, 2.0]（wanx2.1-imageedit 模型使用） */
+    expandScale?: number
+    /** 扩图模型：image-out-painting（默认，专用扩图）/ wanx2.1-imageedit（万相通用图像编辑） */
+    model?: string
+    /** 扩图参数 */
     parameters?: Parameters
+    /** 可选，扩图提示词（wanx2.1-imageedit 模型使用） */
+    prompt?: string
     pictureId?: number
   }
 
@@ -258,16 +265,17 @@ declare namespace API {
   }
 
   type Output1 = {
-    code?: string
-    endTime?: string
-    message?: string
-    outputImageUrl?: string
-    scheduledTime?: string
-    submitTime?: string
-    taskId?: string
-    taskMetrics?: TaskMetrics
-    taskStatus?: string
-  }
+      code?: string
+      endTime?: string
+      message?: string
+      outputImageUrl?: string
+      results?: Array<{ url?: string }>
+      scheduledTime?: string
+      submitTime?: string
+      taskId?: string
+      taskMetrics?: TaskMetrics
+      taskStatus?: string
+    }
 
   type PagePicture_ = {
     current?: number

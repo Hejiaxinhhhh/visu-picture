@@ -4,6 +4,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.json.JSONUtil;
+import com.visupicture.api.aliyunai.model.CreateImageEditTaskRequest;
 import com.visupicture.api.aliyunai.model.CreateOutPaintingTaskRequest;
 import com.visupicture.api.aliyunai.model.CreateOutPaintingTaskResponse;
 import com.visupicture.api.aliyunai.model.GetOutPaintingTaskResponse;
@@ -23,6 +24,9 @@ public class AliYunAiApi {
 
     // 创建任务地址
     public static final String CREATE_OUT_PAINTING_TASK_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/image2image/out-painting";
+
+    // 创建万相图像编辑任务地址（wanx2.1-imageedit）
+    public static final String CREATE_IMAGE_EDIT_TASK_URL = "https://dashscope.aliyuncs.com/api/v1/services/aigc/image2image/image-synthesis";
 
     // 查询任务状态
     public static final String GET_OUT_PAINTING_TASK_URL = "https://dashscope.aliyuncs.com/api/v1/tasks/%s";
@@ -45,6 +49,40 @@ public class AliYunAiApi {
                 .header("X-DashScope-Async", "enable")
                 .header("Content-Type", "application/json")
                 .body(JSONUtil.toJsonStr(createOutPaintingTaskRequest));
+        // 处理响应
+        try (HttpResponse httpResponse = httpRequest.execute()) {
+            if (!httpResponse.isOk()) {
+                log.error("请求异常：{}", httpResponse.body());
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "AI 扩图失败");
+            }
+            CreateOutPaintingTaskResponse createOutPaintingTaskResponse = JSONUtil.toBean(httpResponse.body(), CreateOutPaintingTaskResponse.class);
+            if (createOutPaintingTaskResponse.getCode() != null) {
+                String errorMessage = createOutPaintingTaskResponse.getMessage();
+                log.error("请求异常：{}", errorMessage);
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "AI 扩图失败，" + errorMessage);
+            }
+            return createOutPaintingTaskResponse;
+        }
+    }
+
+    /**
+     * 创建万相通用图像编辑任务（wanx2.1-imageedit，扩图 function = expand）
+     * 任务结果通过 getOutPaintingTask 查询（共用任务查询接口），成功结果在 output.results[0].url
+     *
+     * @param createImageEditTaskRequest
+     * @return
+     */
+    public CreateOutPaintingTaskResponse createImageEditTask(CreateImageEditTaskRequest createImageEditTaskRequest) {
+        if (createImageEditTaskRequest == null) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "扩图参数为空");
+        }
+        // 发送请求
+        HttpRequest httpRequest = HttpRequest.post(CREATE_IMAGE_EDIT_TASK_URL)
+                .header("Authorization", "Bearer " + apiKey)
+                // 必须开启异步处理
+                .header("X-DashScope-Async", "enable")
+                .header("Content-Type", "application/json")
+                .body(JSONUtil.toJsonStr(createImageEditTaskRequest));
         // 处理响应
         try (HttpResponse httpResponse = httpRequest.execute()) {
             if (!httpResponse.isOk()) {

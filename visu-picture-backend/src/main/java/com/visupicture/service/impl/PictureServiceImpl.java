@@ -9,6 +9,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.visupicture.api.aliyunai.AliYunAiApi;
+import com.visupicture.api.aliyunai.model.CreateImageEditTaskRequest;
 import com.visupicture.api.aliyunai.model.CreateOutPaintingTaskRequest;
 import com.visupicture.api.aliyunai.model.CreateOutPaintingTaskResponse;
 import com.visupicture.exception.BusinessException;
@@ -649,14 +650,34 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图片不存在"));
         // 校验权限，已经改为使用注解鉴权
 //        checkPictureAuth(loginUser, picture);
-        // 校验图片分辨率，阿里云扩图要求输入图片宽高均在 [272, 8000] 像素范围内
-        final int MIN_RESOLUTION = 272;
+        // 校验图片分辨率，阿里云扩图类模型要求输入图片宽高均在 [512, 4096] 像素范围内
+        final int MIN_RESOLUTION = 512;
         Integer picWidth = picture.getPicWidth();
         Integer picHeight = picture.getPicHeight();
         ThrowUtils.throwIf(picWidth == null || picHeight == null || picWidth < MIN_RESOLUTION || picHeight < MIN_RESOLUTION, ErrorCode.OPERATION_ERROR,
                 StrUtil.format("图片分辨率过小（当前 {}x{}），无法扩图，请使用宽高不小于 {} 像素的图片",
                         picWidth, picHeight, MIN_RESOLUTION));
 
+        // 可切换扩图模型，默认使用专用扩图模型 image-out-painting
+        String model = StrUtil.blankToDefault(createPictureOutPaintingTaskRequest.getModel(), "image-out-painting");
+        if ("wanx2.1-imageedit".equals(model)) {
+            // 万相通用图像编辑模型扩图（function = expand，按四方向比例扩展）
+            CreateImageEditTaskRequest editTaskRequest = new CreateImageEditTaskRequest();
+            CreateImageEditTaskRequest.Input input = new CreateImageEditTaskRequest.Input();
+            input.setBaseImageUrl(picture.getUrl());
+            input.setPrompt(createPictureOutPaintingTaskRequest.getPrompt());
+            editTaskRequest.setInput(input);
+            CreateImageEditTaskRequest.Parameters editParameters = new CreateImageEditTaskRequest.Parameters();
+            Float expandScale = createPictureOutPaintingTaskRequest.getExpandScale();
+            if (expandScale != null) {
+                editParameters.setTopScale(expandScale);
+                editParameters.setBottomScale(expandScale);
+                editParameters.setLeftScale(expandScale);
+                editParameters.setRightScale(expandScale);
+            }
+            editTaskRequest.setParameters(editParameters);
+            return aliYunAiApi.createImageEditTask(editTaskRequest);
+        }
         // 创建扩图任务
         CreateOutPaintingTaskRequest createOutPaintingTaskRequest = new CreateOutPaintingTaskRequest();
         CreateOutPaintingTaskRequest.Input input = new CreateOutPaintingTaskRequest.Input();
