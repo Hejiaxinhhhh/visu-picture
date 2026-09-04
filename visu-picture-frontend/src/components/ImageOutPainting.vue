@@ -38,7 +38,7 @@ import {
   getPictureOutPaintingTaskUsingGet,
   uploadPictureByUrlUsingPost,
 } from '@/api/pictureController.ts'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 
 interface Props {
   picture?: API.PictureVO
@@ -75,7 +75,11 @@ const createTask = async () => {
     // 开启轮询
     startPolling()
   } else {
-    message.error('图片任务失败，' + res.data.message)
+    Modal.error({
+      title: '创建扩图任务失败',
+      content: res.data.message ?? '未知原因，请稍后重试',
+      centered: true,
+    })
   }
 }
 
@@ -101,9 +105,17 @@ const startPolling = () => {
           // 清理轮询
           clearPolling()
         } else if (taskResult.taskStatus === 'FAILED') {
-          message.error('扩图任务执行失败')
           // 清理轮询
           clearPolling()
+          // 展示具体失败原因
+          const reason = taskResult.message
+            ? `${taskResult.message}（错误码：${taskResult.code ?? '未知'}）`
+            : '未知原因，请稍后重试'
+          Modal.error({
+            title: '扩图任务执行失败',
+            content: `失败原因：${reason}`,
+            centered: true,
+          })
         }
       }
     } catch (error) {

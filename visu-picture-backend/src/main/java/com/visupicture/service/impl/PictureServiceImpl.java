@@ -492,7 +492,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             boolean result = this.removeById(pictureId);
             ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
             // 更新空间的使用额度，释放额度
-            if(oldPicture.getSpaceId() != null) {
+            if (oldPicture.getSpaceId() != null) {
                 boolean update = spaceService.lambdaUpdate()
                         .eq(Space::getId, oldPicture.getSpaceId())
                         .setSql("totalSize = totalSize - " + oldPicture.getPicSize())
@@ -649,6 +649,14 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图片不存在"));
         // 校验权限，已经改为使用注解鉴权
 //        checkPictureAuth(loginUser, picture);
+        // 校验图片分辨率，阿里云扩图要求输入图片宽高均在 [272, 8000] 像素范围内
+        final int MIN_RESOLUTION = 272;
+        Integer picWidth = picture.getPicWidth();
+        Integer picHeight = picture.getPicHeight();
+        ThrowUtils.throwIf(picWidth == null || picHeight == null || picWidth < MIN_RESOLUTION || picHeight < MIN_RESOLUTION, ErrorCode.OPERATION_ERROR,
+                StrUtil.format("图片分辨率过小（当前 {}x{}），无法扩图，请使用宽高不小于 {} 像素的图片",
+                        picWidth, picHeight, MIN_RESOLUTION));
+
         // 创建扩图任务
         CreateOutPaintingTaskRequest createOutPaintingTaskRequest = new CreateOutPaintingTaskRequest();
         CreateOutPaintingTaskRequest.Input input = new CreateOutPaintingTaskRequest.Input();
