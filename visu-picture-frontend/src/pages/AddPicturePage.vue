@@ -86,7 +86,7 @@
 <script setup lang="ts">
 import PictureUpload from '@/components/PictureUpload.vue'
 import { computed, h, onMounted, reactive, ref, watchEffect } from 'vue'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import {
   editPictureUsingPost,
   getPictureVoByIdUsingGet,
@@ -98,6 +98,7 @@ import ImageCropper from '@/components/ImageCropper.vue'
 import { EditOutlined, FullscreenOutlined } from '@ant-design/icons-vue'
 import ImageOutPainting from '@/components/ImageOutPainting.vue'
 import { getSpaceVoByIdUsingGet } from '@/api/spaceController.ts'
+import { useLoginUserStore } from '@/stores/useLoginUserStore.ts'
 
 const router = useRouter()
 const route = useRoute()
@@ -136,11 +137,21 @@ const handleSubmit = async (values: any) => {
   })
   // 操作成功
   if (res.data.code === 0 && res.data.data) {
-    message.success('创建成功')
-    // 跳转到图片详情页
-    router.push({
-      path: `/picture/${pictureId}`,
-    })
+    const isAdmin = useLoginUserStore().loginUser.userRole === 'admin'
+    if (isAdmin) {
+      // 管理员上传直接过审
+      message.success('创建成功')
+    } else {
+      // 普通用户上传进入待审核状态
+      Modal.success({
+        title: '上传完成',
+        content: '待管理员审核通过后在首页展示',
+        centered: true,
+        okText: '知道了',
+      })
+    }
+    // 跳转到公共图库首页
+    router.push('/')
   } else {
     message.error('创建失败，' + res.data.message)
   }
