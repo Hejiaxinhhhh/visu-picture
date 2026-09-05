@@ -28,4 +28,23 @@ public interface UserConstant {
     String ADMIN_ROLE = "admin";
 
     // endregion
+
+    // region 积分
+
+    /**
+     * 新用户注册赠送积分
+     */
+    int REGISTER_POINTS = 50;
+
+    /**
+     * 每日签到赠送积分
+     */
+    int SIGN_IN_POINTS = 5;
+
+    /**
+     * AI 扩图一次消耗积分
+     */
+    int OUT_PAINTING_POINTS = 20;
+
+    // endregion
 }

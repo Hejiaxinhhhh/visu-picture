@@ -65,6 +65,16 @@ public class User implements Serializable {
     private Long vipNumber;
 
     /**
+     * 积分（用于 AI 扩图等消耗功能）
+     */
+    private Integer points;
+
+    /**
+     * 最近签到时间
+     */
+    private Date lastSignInTime;
+
+    /**
      * 编辑时间
      */
     private Date editTime;

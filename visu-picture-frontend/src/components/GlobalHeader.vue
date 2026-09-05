@@ -41,6 +41,17 @@
           </template>
         </a-dropdown>
 
+        <!-- 剩余积分徽章（点击去用户中心签到） -->
+        <a-tooltip v-if="loginUserStore.loginUser.id" title="点击签到获取积分">
+          <div class="points-badge" @click="router.push('/user/center')">
+            <svg class="points-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+              <path d="M19 3l.6 1.6L21 5.2l-1.4.6L19 7.4l-.6-1.6L17 5.2l1.4-.6z" />
+            </svg>
+            <span class="points-num">{{ loginUserStore.loginUser.points ?? 0 }}</span>
+          </div>
+        </a-tooltip>
+
         <!-- 发布按钮（原"创建图片"入口） -->
         <div class="publish-btn" @click="router.push('/add_picture')">
           <PlusOutlined class="publish-icon" />
@@ -198,6 +209,62 @@ const doLogout = async () => {
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+/* 剩余积分徽章：药丸样式跟随主题（浅色：白底蓝光；深色：黑底紫光） */
+#globalHeader .points-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: #3d5af5;
+  font-size: 14px;
+  font-weight: 600;
+  background: #ffffff;
+  border: 1.5px solid rgba(61, 90, 245, 0.4);
+  box-shadow: 0 2px 10px rgba(61, 90, 245, 0.18);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition:
+    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.25s ease,
+    border-color 0.25s ease,
+    background 0.25s ease,
+    color 0.25s ease;
+}
+
+#globalHeader .points-badge:hover {
+  transform: translateY(-2px) scale(1.05);
+  border-color: #3d5af5;
+  box-shadow: 0 4px 16px rgba(61, 90, 245, 0.35);
+}
+
+#globalHeader .points-badge:active {
+  transform: translateY(0) scale(0.98);
+}
+
+#globalHeader .points-icon {
+  color: currentcolor;
+}
+
+#globalHeader .points-num {
+  line-height: 1;
+}
+
+/* 深色主题：黑底 + 紫色光晕描边 */
+html.dark #globalHeader .points-badge {
+  color: #e8eaf6;
+  background: rgba(16, 18, 32, 0.92);
+  border-color: rgba(124, 150, 255, 0.85);
+  box-shadow: 0 0 10px rgba(124, 150, 255, 0.35);
+}
+
+html.dark #globalHeader .points-badge:hover {
+  border-color: #7c96ff;
+  box-shadow: 0 0 16px rgba(124, 150, 255, 0.6);
 }
 
 /* 发布按钮（原"创建图片"入口）：蓝色药丸 + 悬停动效 */

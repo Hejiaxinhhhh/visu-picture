@@ -103,4 +103,12 @@ public interface UserService extends IService<User> {
      * 用户兑换会员（会员码兑换）
      */
     boolean exchangeVip(User user, String vipCode);
+
+    /**
+     * 每日签到（每天一次，赠送积分）
+     *
+     * @param loginUser 登录用户
+     * @return 签到后的最新积分
+     */
+    Integer signIn(User loginUser);
 }

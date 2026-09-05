@@ -166,6 +166,16 @@ public class UserController {
     }
 
     /**
+     * 每日签到（每天一次，赠送积分）
+     */
+    @PostMapping("/sign_in")
+    public BaseResponse<Integer> signIn(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        Integer points = userService.signIn(loginUser);
+        return ResultUtils.success(points);
+    }
+
+    /**
      * 兑换会员
      */
     @PostMapping("/exchange/vip")

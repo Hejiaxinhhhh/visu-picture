@@ -47,6 +47,11 @@ public class UserVO implements Serializable {
     private Date vipExpireTime;
 
     /**
+     * 积分
+     */
+    private Integer points;
+
+    /**
      * 会员兑换码
      */
     private String vipCode;

@@ -47,6 +47,16 @@ public class LoginUserVO implements Serializable {
     private Date vipExpireTime;
 
     /**
+     * 积分
+     */
+    private Integer points;
+
+    /**
+     * 最近签到时间
+     */
+    private Date lastSignInTime;
+
+    /**
      * 编辑时间
      */
     private Date editTime;

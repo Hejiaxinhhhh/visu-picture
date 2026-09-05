@@ -49,6 +49,10 @@
     <div v-if="taskId" style="max-width: 420px; margin: 0 auto 12px">
       <a-progress :percent="progress" status="active" />
     </div>
+    <!-- 积分提示：剩余积分与本次消耗 -->
+    <div class="points-tip">
+      剩余积分：<b>{{ loginUserStore.loginUser.points ?? 0 }}</b> 分，本次扩图消耗 20 分
+    </div>
     <a-flex justify="center" gap="16">
       <a-button
         type="primary"
@@ -57,7 +61,7 @@
         :disabled="model === 'wanx2.1-imageedit' && !prompt.trim()"
         @click="createTask"
       >
-        生成图片
+        生成图片（-20 积分）
       </a-button>
       <a-button v-if="resultImageUrl" type="primary" :loading="uploadLoading" @click="handleUpload">
         应用结果
@@ -74,6 +78,9 @@ import {
   uploadPictureByUrlUsingPost,
 } from '@/api/pictureController.ts'
 import { message, Modal } from 'ant-design-vue'
+import { useLoginUserStore } from '@/stores/useLoginUserStore.ts'
+
+const loginUserStore = useLoginUserStore()
 
 interface Props {
   picture?: API.PictureVO
@@ -145,6 +152,8 @@ const createTask = async () => {
     message.success('创建任务成功，请耐心等待，不要退出界面')
     console.log(res.data.data.output.taskId)
     taskId.value = res.data.data.output.taskId
+    // 扣了积分，刷新登录用户信息以更新剩余积分
+    loginUserStore.fetchLoginUser()
     // 启动模拟进度
     startProgress()
     // 开启轮询
@@ -271,5 +280,27 @@ defineExpose({
 <style>
 .image-out-painting {
   text-align: center;
+}
+
+/* 剩余积分提示 */
+.points-tip {
+  margin: 0 auto 16px;
+  font-size: 13px;
+  color: rgba(35, 44, 86, 0.55);
+}
+
+.points-tip b {
+  color: #3d5af5;
+  font-size: 15px;
+  margin: 0 2px;
+}
+
+/* 深色模式 */
+html.dark .points-tip {
+  color: rgba(200, 208, 240, 0.6);
+}
+
+html.dark .points-tip b {
+  color: #7c96ff;
 }
 </style>

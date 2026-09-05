@@ -10,6 +10,7 @@ import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.visupicture.constant.UserConstant;
 import com.visupicture.exception.BusinessException;
@@ -89,6 +90,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         user.setUserPassword(encryptPassword);
         user.setUserName("视界用户");
         user.setUserRole(UserRoleEnum.USER.getValue());
+        // 新用户注册赠送积分
+        user.setPoints(UserConstant.REGISTER_POINTS);
         boolean saveResult = this.save(user);
         if (!saveResult) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
@@ -353,6 +356,37 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     // endregion ------- 以下代码为用户兑换会员功能 --------
+
+    // region ------- 以下代码为每日签到 / 积分功能 --------
+
+    /**
+     * 每日签到，赠送积分
+     *
+     * @param loginUser 登录用户
+     * @return 签到后的最新积分
+     */
+    @Override
+    public Integer signIn(User loginUser) {
+        if (loginUser == null || loginUser.getId() == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        // 今日零点，签到时间早于它说明今天还没签到
+        Date todayStart = DateUtil.beginOfDay(new Date());
+        // 条件更新保证并发下不会重复签到：未签到过或签到时间不在今天时才加分
+        boolean updated = this.update(new LambdaUpdateWrapper<User>()
+                .eq(User::getId, loginUser.getId())
+                .and(w -> w.isNull(User::getLastSignInTime).or().lt(User::getLastSignInTime, todayStart))
+                .setSql("points = points + " + UserConstant.SIGN_IN_POINTS)
+                .set(User::getLastSignInTime, new Date()));
+        if (!updated) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "今日已签到，明天再来吧～");
+        }
+        // 返回最新积分
+        User user = this.getById(loginUser.getId());
+        return user.getPoints();
+    }
+
+    // endregion ------- 以下代码为每日签到 / 积分功能 --------
 }
 
 

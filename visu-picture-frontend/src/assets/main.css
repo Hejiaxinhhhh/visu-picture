@@ -231,6 +231,15 @@ html.dark #userCenterPage .entry-item:hover {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
+/* 用户中心：积分与签到 */
+html.dark #userCenterPage .points-value {
+  color: #e8eaf6;
+}
+
+html.dark #userCenterPage .points-value b {
+  color: #7c96ff;
+}
+
 /* 登录 / 注册页：白色卡片与说明文字 */
 html.dark .auth-card {
   background: #161c2e;

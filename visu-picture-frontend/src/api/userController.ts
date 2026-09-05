@@ -97,6 +97,14 @@ export async function listUserVoByPageUsingPost(
   })
 }
 
+/** signIn POST /api/user/sign_in（每日签到，返回最新积分） */
+export async function signInUsingPost(options?: { [key: string]: any }) {
+  return request<API.BaseResponseInt_>('/api/user/sign_in', {
+    method: 'POST',
+    ...(options || {}),
+  })
+}
+
 /** userLogin POST /api/user/login */
 export async function userLoginUsingPost(
   body: API.UserLoginRequest,

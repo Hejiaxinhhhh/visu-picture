@@ -24,6 +24,25 @@
           <div class="desc-label">加入时间</div>
           <div class="desc-content">{{ formatDate(loginUser.createTime) }}</div>
         </div>
+        <a-divider />
+        <!-- 积分与每日签到 -->
+        <div class="points-row">
+          <div class="points-info">
+            <div class="desc-label">我的积分</div>
+            <div class="points-value">
+              <b>{{ loginUser.points ?? 0 }}</b> 分
+            </div>
+          </div>
+          <a-button
+            type="primary"
+            size="small"
+            :loading="signingIn"
+            :disabled="signedToday"
+            @click="handleSignIn"
+          >
+            {{ signedToday ? '已签到' : '签到' }}
+          </a-button>
+        </div>
       </a-card>
 
       <!-- 右侧：快捷入口 -->
@@ -120,6 +139,7 @@ import {
 import { useLoginUserStore } from '@/stores/useLoginUserStore.ts'
 import PictureList from '@/components/PictureList.vue'
 import { listPictureVoByPageUsingPost } from '@/api/pictureController.ts'
+import { signInUsingPost } from '@/api/userController.ts'
 
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
@@ -183,12 +203,62 @@ watch(
   { immediate: true },
 )
 
+// 日期解析：兼容 ISO 带 T（"2026-09-05T14:58:59.000+00:00"）与空格分隔（"2026-09-05 22:58:59"）两种格式
+// 直接对 ISO 字符串替换 '-' 会得到 "2026/09/05T..." 混合格式导致 Invalid Date
+const parseDate = (time?: string): Date | null => {
+  if (!time) return null
+  let d = new Date(time)
+  if (isNaN(d.getTime())) {
+    d = new Date(time.replace(/-/g, '/').replace('T', ' '))
+  }
+  return isNaN(d.getTime()) ? null : d
+}
+
 // VIP 有效期是否未过（未过期即 VIP 用户）
 const isVip = computed(() => {
-  const expire = loginUser.value.vipExpireTime
-  if (!expire) return false
-  return new Date(expire.replace(/-/g, '/')).getTime() > Date.now()
+  const expire = parseDate(loginUser.value.vipExpireTime)
+  return !!expire && expire.getTime() > Date.now()
 })
+
+// ----- 每日签到 -----
+const signingIn = ref(false)
+
+// 最近签到时间是否在今天（用于按钮置灰）
+const signedToday = computed(() => {
+  const lastDate = parseDate(loginUser.value.lastSignInTime)
+  if (!lastDate) return false
+  const now = new Date()
+  return (
+    lastDate.getFullYear() === now.getFullYear() &&
+    lastDate.getMonth() === now.getMonth() &&
+    lastDate.getDate() === now.getDate()
+  )
+})
+
+const handleSignIn = async () => {
+  signingIn.value = true
+  try {
+    const res = await signInUsingPost()
+    if (res.data.code === 0) {
+      const newPoints = res.data.data ?? (loginUser.value.points ?? 0) + 5
+      message.success(`签到成功，获得 5 积分，当前积分：${newPoints}`)
+      // 立即更新本地登录态：按钮马上变"已签到"，导航积分徽章同步
+      loginUserStore.setLoginUser({
+        ...loginUser.value,
+        points: newPoints,
+        lastSignInTime: new Date().toLocaleString('sv-SE'),
+      })
+      // 再从服务端刷新一次兜底
+      loginUserStore.fetchLoginUser()
+    } else {
+      message.error(res.data.message ?? '签到失败')
+    }
+  } catch (error: any) {
+    message.error('签到失败，' + (error?.message ?? '请稍后重试'))
+  } finally {
+    signingIn.value = false
+  }
+}
 
 // 注册时间格式化
 const formatDate = (time?: string) => {
@@ -282,6 +352,27 @@ const formatDate = (time?: string) => {
 .desc-content {
   color: #26283a;
   font-size: 14px;
+}
+
+/* 积分与每日签到 */
+.points-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.points-value {
+  color: #26283a;
+  font-size: 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.points-value b {
+  color: #3d5af5;
+  font-size: 20px;
 }
 
 .entry-grid {

@@ -725,6 +725,8 @@ declare namespace API {
     vipCode?: string
     vipExpireTime?: string
     vipNumber?: number
+    /** 积分 */
+    points?: number
   }
 
   type VipExchangeRequest = {
