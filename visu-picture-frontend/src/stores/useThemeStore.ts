@@ -25,7 +25,7 @@ export const useThemeStore = defineStore('theme', () => {
     applyTheme()
     window.setTimeout(() => {
       document.documentElement.classList.remove('theme-transitioning')
-    }, 1200)
+    }, 1000)
   }
 
   return { isDark, toggleTheme }

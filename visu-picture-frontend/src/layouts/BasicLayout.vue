@@ -7,9 +7,10 @@
       <a-layout-content class="content">
         <router-view />
       </a-layout-content>
-      <a-layout-footer class="footer">
-        <a href="https://gitee.com/whirlwind-nanny" target="_blank"> 视界图库 by 何佳鑫(旋风) </a>
-      </a-layout-footer>
+      <!-- 底部仅保留备案号占位，备案通过后替换为真实备案号 -->
+      <footer class="footer">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">京ICP备xxxx号</a>
+      </footer>
     </a-layout>
     <!-- 右下角悬浮按钮组：主题切换 + 返回顶部 -->
     <div class="float-actions">
@@ -116,12 +117,12 @@ const backToTop = () => {
   background: transparent;
   padding: 16px;
   text-align: center;
-  color: rgba(35, 44, 86, 0.45);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 #basicLayout .footer a {
-  color: rgba(35, 44, 86, 0.55);
+  color: rgba(35, 44, 86, 0.4);
+  text-decoration: none;
 }
 
 #basicLayout .footer a:hover {
