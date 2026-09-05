@@ -1,8 +1,6 @@
 package com.visupicture.controller;
 
 import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.io.FileUtil;
-import cn.hutool.http.HttpUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.visupicture.annotation.AuthCheck;
 import com.visupicture.common.BaseResponse;
@@ -19,6 +17,7 @@ import com.visupicture.model.vo.UserVO;
 import com.visupicture.service.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -163,6 +162,17 @@ public class UserController {
         List<UserVO> userVOList = userService.getUserVOList(userPage.getRecords());
         userVOPage.setRecords(userVOList);
         return ResultUtils.success(userVOPage);
+    }
+
+    /**
+     * 更新用户头像
+     */
+    @PostMapping("/avatar")
+    public BaseResponse<LoginUserVO> uploadAvatar(@RequestPart("file") MultipartFile file,
+                                                  HttpServletRequest request) {
+        ThrowUtils.throwIf(file == null || file.isEmpty(), ErrorCode.PARAMS_ERROR, "头像文件不能为空");
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(userService.updateUserAvatar(file, loginUser));
     }
 
     /**

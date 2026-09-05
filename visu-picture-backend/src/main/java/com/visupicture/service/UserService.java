@@ -6,6 +6,7 @@ import com.visupicture.model.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.visupicture.model.vo.LoginUserVO;
 import com.visupicture.model.vo.UserVO;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -111,4 +112,13 @@ public interface UserService extends IService<User> {
      * @return 签到后的最新积分
      */
     Integer signIn(User loginUser);
+
+    /**
+     * 更新用户头像（上传到对象存储并更新数据库）
+     *
+     * @param file      头像图片文件
+     * @param loginUser 登录用户
+     * @return 更新后的脱敏用户信息
+     */
+    LoginUserVO updateUserAvatar(MultipartFile file, User loginUser);
 }

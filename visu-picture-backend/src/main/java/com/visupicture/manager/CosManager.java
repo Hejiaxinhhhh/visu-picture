@@ -1,9 +1,13 @@
 package com.visupicture.manager;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.io.FileUtil;
 import com.qcloud.cos.COSClient;
 import com.qcloud.cos.model.COSObject;
+import com.qcloud.cos.model.DeleteObjectsRequest;
 import com.qcloud.cos.model.GetObjectRequest;
+import com.qcloud.cos.model.ListObjectsRequest;
+import com.qcloud.cos.model.ObjectListing;
 import com.qcloud.cos.model.PutObjectRequest;
 import com.qcloud.cos.model.PutObjectResult;
 import com.qcloud.cos.model.ciModel.persistence.PicOperations;
@@ -14,6 +18,7 @@ import javax.annotation.Resource;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 public class CosManager {
@@ -92,5 +97,30 @@ public class CosManager {
      */
     public void deleteObject(String key) {
         cosClient.deleteObject(cosClientConfig.getBucket(), key);
+    }
+
+    /**
+     * 按前缀批量删除对象（一次清理原图、压缩图、缩略图等变体文件）
+     *
+     * @param prefix 对象键前缀
+     */
+    public void deleteObjectsByPrefix(String prefix) {
+        ListObjectsRequest listRequest = new ListObjectsRequest();
+        listRequest.setBucketName(cosClientConfig.getBucket());
+        listRequest.setPrefix(prefix);
+        listRequest.setMaxKeys(1000);
+        ObjectListing listing;
+        do {
+            listing = cosClient.listObjects(listRequest);
+            List<DeleteObjectsRequest.KeyVersion> keys = listing.getObjectSummaries().stream()
+                    .map(obj -> new DeleteObjectsRequest.KeyVersion(obj.getKey()))
+                    .collect(Collectors.toList());
+            if (CollUtil.isNotEmpty(keys)) {
+                DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(cosClientConfig.getBucket());
+                deleteRequest.setKeys(keys);
+                cosClient.deleteObjects(deleteRequest);
+            }
+            listRequest.setMarker(listing.getNextMarker());
+        } while (listing.isTruncated());
     }
 }

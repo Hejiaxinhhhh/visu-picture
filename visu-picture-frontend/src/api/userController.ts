@@ -105,6 +105,29 @@ export async function signInUsingPost(options?: { [key: string]: any }) {
   })
 }
 
+/** uploadAvatar POST /api/user/avatar（更新用户头像，返回最新登录用户信息） */
+export async function uploadAvatarUsingPost(
+  body: {},
+  file?: File,
+  options?: { [key: string]: any }
+) {
+  const formData = new FormData()
+  if (file) {
+    formData.append('file', file)
+  }
+  Object.keys(body).forEach((ele) => {
+    const item = (body as any)[ele]
+    if (item !== undefined) {
+      formData.append(ele, item as any)
+    }
+  })
+  return request<API.BaseResponseLoginUserVO_>('/api/user/avatar', {
+    method: 'POST',
+    data: formData,
+    ...(options || {}),
+  })
+}
+
 /** userLogin POST /api/user/login */
 export async function userLoginUsingPost(
   body: API.UserLoginRequest,

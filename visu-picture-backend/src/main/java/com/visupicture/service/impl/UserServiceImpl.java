@@ -6,16 +6,20 @@ import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.crypto.digest.DigestUtil;
+
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.visupicture.constant.UserConstant;
+import com.visupicture.config.CosClientConfig;
 import com.visupicture.exception.BusinessException;
 import com.visupicture.exception.ErrorCode;
+import com.visupicture.manager.CosManager;
 import com.visupicture.manager.auth.StpKit;
+import com.visupicture.manager.upload.FilePictureUpload;
+import com.visupicture.model.dto.file.UploadPictureResult;
 import com.visupicture.model.dto.user.UserQueryRequest;
 import com.visupicture.model.dto.user.VipCode;
 import com.visupicture.model.entity.User;
@@ -24,19 +28,15 @@ import com.visupicture.model.vo.LoginUserVO;
 import com.visupicture.model.vo.UserVO;
 import com.visupicture.service.UserService;
 import com.visupicture.mapper.UserMapper;
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
-
+import org.springframework.web.multipart.MultipartFile;
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -51,6 +51,15 @@ import java.util.stream.Collectors;
 @Slf4j
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         implements UserService {
+
+    @Resource
+    private FilePictureUpload filePictureUpload;
+
+    @Resource
+    private CosManager cosManager;
+
+    @Resource
+    private CosClientConfig cosClientConfig;
 
     /**
      * 用户注册
@@ -251,7 +260,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     // region ------- 以下代码为用户兑换会员功能 --------
 
     // 新增依赖注入
-    @Autowired
+    @Resource
     private ResourceLoader resourceLoader;
 
     // 文件读写锁（确保并发安全）
@@ -312,7 +321,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      */
     private JSONArray readVipCodeFile() {
         try {
-            Resource resource = resourceLoader.getResource("classpath:biz/vipCode.json");
+            org.springframework.core.io.Resource resource =
+                    resourceLoader.getResource("classpath:biz/vipCode.json");
             String content = FileUtil.readString(resource.getFile(), StandardCharsets.UTF_8);
             return JSONUtil.parseArray(content);
         } catch (IOException e) {
@@ -326,7 +336,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      */
     private void writeVipCodeFile(JSONArray jsonArray) {
         try {
-            Resource resource = resourceLoader.getResource("classpath:biz/vipCode.json");
+            org.springframework.core.io.Resource resource =
+                    resourceLoader.getResource("classpath:biz/vipCode.json");
             FileUtil.writeString(jsonArray.toStringPretty(), resource.getFile(), StandardCharsets.UTF_8);
         } catch (IOException e) {
             log.error("更新兑换码文件失败", e);
@@ -387,6 +398,64 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     // endregion ------- 以下代码为每日签到 / 积分功能 --------
+
+    // region ------- 以下代码为用户头像上传 --------
+
+    /**
+     * 更新用户头像（复用图片上传模板，头像路径按用户隔离）
+     *
+     * @param file      头像图片文件
+     * @param loginUser 登录用户
+     * @return 更新后的脱敏用户信息
+     */
+    @Override
+    public LoginUserVO updateUserAvatar(MultipartFile file, User loginUser) {
+        if (loginUser == null || loginUser.getId() == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        // 复用文件上传模板上传到 COS，路径前缀 avatar/<userId>
+        String uploadPathPrefix = String.format("avatar/%s", loginUser.getId());
+        UploadPictureResult uploadPictureResult = filePictureUpload.uploadPicture(file, uploadPathPrefix);
+        String newAvatarUrl = uploadPictureResult.getUrl();
+        // 更新数据库中的头像地址
+        User updateUser = new User();
+        updateUser.setId(loginUser.getId());
+        updateUser.setUserAvatar(newAvatarUrl);
+        boolean updated = this.updateById(updateUser);
+        if (!updated) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "头像更新失败");
+        }
+        // 清理旧头像的 COS 文件（原图、压缩图、缩略图），失败不影响主流程
+        this.deleteOldAvatar(loginUser.getUserAvatar());
+        // 返回最新脱敏用户信息
+        User user = this.getById(loginUser.getId());
+        return this.getLoginUserVO(user);
+    }
+
+    /**
+     * 清理旧头像文件，避免 COS 孤儿文件
+     */
+    private void deleteOldAvatar(String oldAvatarUrl) {
+        if (StrUtil.isBlank(oldAvatarUrl)) {
+            return;
+        }
+        try {
+            String host = cosClientConfig.getHost();
+            if (!oldAvatarUrl.startsWith(host)) {
+                return;
+            }
+            String key = StrUtil.removePrefix(oldAvatarUrl, host + "/");
+            // 仅清理 avatar 目录下的对象，且按主文件名前缀匹配（原图、webp、缩略图），防止误删
+            if (!key.startsWith("avatar/") || StrUtil.isBlank(FileUtil.mainName(key))) {
+                return;
+            }
+            cosManager.deleteObjectsByPrefix(FileUtil.mainName(key));
+        } catch (Exception e) {
+            log.warn("旧头像清理失败, url = {}", oldAvatarUrl, e);
+        }
+    }
+
+    // endregion ------- 以下代码为用户头像上传 --------
 }
 
 

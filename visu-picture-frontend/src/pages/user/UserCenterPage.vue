@@ -4,7 +4,22 @@
       <!-- 左侧：用户信息卡 -->
       <a-card class="profile-card">
         <div class="profile-top">
-          <a-avatar :src="loginUser.userAvatar" :size="88" class="profile-avatar" />
+          <!-- 头像：点击上传更换 -->
+          <a-upload
+            :show-upload-list="false"
+            :custom-request="handleAvatarUpload"
+            :before-upload="beforeAvatarUpload"
+            :disabled="avatarUploading"
+          >
+            <div class="avatar-wrapper" :class="{ uploading: avatarUploading }">
+              <a-avatar :src="loginUser.userAvatar" :size="88" class="profile-avatar" />
+              <div class="avatar-mask">
+                <LoadingOutlined v-if="avatarUploading" spin />
+                <CameraOutlined v-else />
+                <span>{{ avatarUploading ? '上传中' : '更换头像' }}</span>
+              </div>
+            </div>
+          </a-upload>
           <div class="profile-name-area">
             <div class="profile-name">
               {{ loginUser.userName ?? '视界用户' }}
@@ -130,8 +145,10 @@ import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
   AppstoreOutlined,
+  CameraOutlined,
   CrownOutlined,
   FolderOutlined,
+  LoadingOutlined,
   PictureOutlined,
   TeamOutlined,
   UserOutlined,
@@ -139,7 +156,8 @@ import {
 import { useLoginUserStore } from '@/stores/useLoginUserStore.ts'
 import PictureList from '@/components/PictureList.vue'
 import { listPictureVoByPageUsingPost } from '@/api/pictureController.ts'
-import { signInUsingPost } from '@/api/userController.ts'
+import { signInUsingPost, uploadAvatarUsingPost } from '@/api/userController.ts'
+import type { UploadProps } from 'ant-design-vue'
 
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
@@ -260,6 +278,44 @@ const handleSignIn = async () => {
   }
 }
 
+// ----- 头像上传 -----
+const avatarUploading = ref(false)
+
+/**
+ * 上传前校验（与图片上传一致的格式与大小限制）
+ */
+const beforeAvatarUpload = (file: UploadProps['fileList'][number]) => {
+  const isImage = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
+  if (!isImage) {
+    message.error('不支持上传该格式的图片，推荐 jpg 或 png')
+  }
+  const isLt2M = file.size / 1024 / 1024 < 2
+  if (!isLt2M) {
+    message.error('头像图片不能超过 2MB')
+  }
+  return isImage && isLt2M
+}
+
+/**
+ * 上传头像，成功后直接用返回的最新用户信息更新登录态（导航栏头像同步更新）
+ */
+const handleAvatarUpload = async ({ file }: any) => {
+  avatarUploading.value = true
+  try {
+    const res = await uploadAvatarUsingPost({}, file)
+    if (res.data.code === 0 && res.data.data) {
+      message.success('头像更新成功')
+      loginUserStore.setLoginUser(res.data.data)
+    } else {
+      message.error('头像更新失败，' + res.data.message)
+    }
+  } catch (error: any) {
+    message.error('头像更新失败，' + (error?.message ?? '请稍后重试'))
+  } finally {
+    avatarUploading.value = false
+  }
+}
+
 // 注册时间格式化
 const formatDate = (time?: string) => {
   if (!time) return '-'
@@ -322,6 +378,45 @@ const formatDate = (time?: string) => {
 .profile-avatar {
   background: #eef2ff;
   flex-shrink: 0;
+}
+
+/* 头像上传：悬停遮罩 */
+.avatar-wrapper {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.avatar-wrapper .avatar-mask {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: #fff;
+  background: rgba(23, 26, 43, 0.55);
+  opacity: 0;
+  transform: translateY(100%);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.avatar-wrapper:hover .avatar-mask {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.avatar-wrapper.uploading .avatar-mask {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .profile-name {
