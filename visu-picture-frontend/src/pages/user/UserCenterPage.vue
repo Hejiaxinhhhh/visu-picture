@@ -72,13 +72,43 @@
           </div>
         </div>
       </a-card>
+
+      <!-- 我的公共图库作品 -->
+      <a-card class="my-pictures-card" title="我的公共图库作品">
+        <template #extra>
+          <div class="pic-extra">
+            <span class="pic-count">已过审 {{ pictureTotal }} 张，正在公共图库展示</span>
+            <a-button type="primary" size="small" @click="router.push('/add_picture')">
+              上传图片
+            </a-button>
+          </div>
+        </template>
+        <PictureList
+          v-if="pictureList.length > 0"
+          :dataList="pictureList"
+          :loading="picturesLoading"
+          :finished="picturesFinished"
+          :showOp="true"
+          :canEdit="true"
+          :canDelete="true"
+          :onReload="reloadPictures"
+          @load-more="loadMorePictures"
+        />
+        <a-spin v-else-if="picturesLoading" class="pic-loading" />
+        <a-empty v-else description="还没有在公共图库上传过图片">
+          <a-button type="primary" @click="router.push('/add_picture')">
+            去上传第一张图片
+          </a-button>
+        </a-empty>
+      </a-card>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
 import {
   AppstoreOutlined,
   CrownOutlined,
@@ -88,10 +118,70 @@ import {
   UserOutlined,
 } from '@ant-design/icons-vue'
 import { useLoginUserStore } from '@/stores/useLoginUserStore.ts'
+import PictureList from '@/components/PictureList.vue'
+import { listPictureVoByPageUsingPost } from '@/api/pictureController.ts'
 
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
 const loginUser = computed(() => loginUserStore.loginUser)
+
+// ----- 我的公共图库作品（仅展示已过审图片，后端对公开查询自动过滤） -----
+const PAGE_SIZE = 20
+const pictureList = ref<API.PictureVO[]>([])
+const picturesLoading = ref(false)
+const picturesFinished = ref(false)
+const pictureCurrent = ref(1)
+const pictureTotal = ref(0)
+
+const fetchMyPublicPictures = async () => {
+  if (!loginUser.value.id || picturesLoading.value || picturesFinished.value) return
+  picturesLoading.value = true
+  try {
+    const res = await listPictureVoByPageUsingPost({
+      userId: loginUser.value.id,
+      current: pictureCurrent.value,
+      pageSize: PAGE_SIZE,
+      sortField: 'editTime',
+      sortOrder: 'descend',
+    })
+    if (res.data.code === 0 && res.data.data) {
+      const records = res.data.data.records ?? []
+      pictureList.value.push(...records)
+      pictureTotal.value = Number(res.data.data.total ?? 0)
+      if (pictureList.value.length >= pictureTotal.value || records.length < PAGE_SIZE) {
+        picturesFinished.value = true
+      } else {
+        pictureCurrent.value += 1
+      }
+    } else {
+      message.error('加载我的作品失败，' + res.data.message)
+      picturesFinished.value = true
+    }
+  } catch (error) {
+    picturesFinished.value = true
+  } finally {
+    picturesLoading.value = false
+  }
+}
+
+const loadMorePictures = () => fetchMyPublicPictures()
+
+// 删除/编辑后重置并重新加载列表
+const reloadPictures = () => {
+  pictureList.value = []
+  pictureCurrent.value = 1
+  picturesFinished.value = false
+  fetchMyPublicPictures()
+}
+
+// 登录态就绪后加载（登录用户信息为异步获取）
+watch(
+  () => loginUser.value.id,
+  (id) => {
+    if (id) fetchMyPublicPictures()
+  },
+  { immediate: true },
+)
 
 // VIP 有效期是否未过（未过期即 VIP 用户）
 const isVip = computed(() => {
@@ -124,6 +214,27 @@ const formatDate = (time?: string) => {
 /* 管理员功能卡片独占一行 */
 .admin-card {
   grid-column: 1 / -1;
+}
+
+/* 我的公共图库作品独占一行 */
+.my-pictures-card {
+  grid-column: 1 / -1;
+}
+
+.pic-extra {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pic-count {
+  color: rgba(35, 44, 86, 0.55);
+  font-size: 12px;
+}
+
+.pic-loading {
+  display: block;
+  margin: 40px auto;
 }
 
 @media (max-width: 860px) {

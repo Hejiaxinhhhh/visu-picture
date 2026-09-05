@@ -6,6 +6,7 @@ import cn.hutool.json.JSONUtil;
 import com.visupicture.manager.auth.model.SpaceUserAuthConfig;
 import com.visupicture.manager.auth.model.SpaceUserPermissionConstant;
 import com.visupicture.manager.auth.model.SpaceUserRole;
+import com.visupicture.model.entity.Picture;
 import com.visupicture.model.entity.Space;
 import com.visupicture.model.entity.SpaceUser;
 import com.visupicture.model.entity.User;
@@ -70,6 +71,18 @@ public class SpaceUserAuthManager {
      * @return
      */
     public List<String> getPermissionList(Space space, User loginUser) {
+        return getPermissionList(space, loginUser, null);
+    }
+
+    /**
+     * 获取权限列表（支持公共图库图片：上传者本人对自己上传的图片拥有全部权限）
+     *
+     * @param space
+     * @param loginUser
+     * @param picture 当前图片，公共图库时用于判断上传者
+     * @return
+     */
+    public List<String> getPermissionList(Space space, User loginUser, Picture picture) {
         if (loginUser == null) {
             return new ArrayList<>();
         }
@@ -78,6 +91,10 @@ public class SpaceUserAuthManager {
         // 公共图库
         if (space == null) {
             if (userService.isAdmin(loginUser)) {
+                return ADMIN_PERMISSIONS;
+            }
+            // 自己上传到公共图库的图片，本人拥有全部权限
+            if (picture != null && picture.getUserId() != null && picture.getUserId().equals(loginUser.getId())) {
                 return ADMIN_PERMISSIONS;
             }
             return Collections.singletonList(SpaceUserPermissionConstant.PICTURE_VIEW);

@@ -232,7 +232,7 @@ const doClickPicture = (picture: API.PictureVO) => {
 }
 
 // 搜索（跳转站内以图搜图结果页）
-const doSearch = (picture, e) => {
+const doSearch = (picture: API.PictureVO, e: Event) => {
   // 阻止冒泡
   e.stopPropagation()
   // 打开新的页面
@@ -240,7 +240,7 @@ const doSearch = (picture, e) => {
 }
 
 // 编辑
-const doEdit = (picture, e) => {
+const doEdit = (picture: API.PictureVO, e: Event) => {
   // 阻止冒泡
   e.stopPropagation()
   // 跳转时一定要携带 spaceId
@@ -254,7 +254,7 @@ const doEdit = (picture, e) => {
 }
 
 // 删除数据
-const doDelete = async (picture, e) => {
+const doDelete = async (picture: API.PictureVO, e: Event) => {
   // 阻止冒泡
   e.stopPropagation()
   const id = picture.id
@@ -273,9 +273,9 @@ const doDelete = async (picture, e) => {
 // ----- 分享操作 ----
 const shareModalRef = ref()
 // 分享链接
-const shareLink = ref<string>()
+const shareLink = ref<string>('')
 // 分享
-const doShare = (picture, e) => {
+const doShare = (picture: API.PictureVO, e: Event) => {
   // 阻止冒泡
   e.stopPropagation()
   shareLink.value = `${window.location.protocol}//${window.location.host}/picture/${picture.id}`
